@@ -1,0 +1,39 @@
+version: '3.8'
+services:
+  backend:
+    build: ./backend
+    container_name: insighter-backend
+    command: uvicorn main:app --reload --host 0.0.0.0 --port 8000
+    volumes:
+      - ./backend:/app
+    ports: ["8000:8000"]
+    env_file: .env
+    depends_on: [db, mlflow]
+
+  frontend:
+    build: ./frontend
+    container_name: insighter-frontend
+    command: npm run dev
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    ports: ["3000:3000"]
+    env_file: .env
+
+  db:
+    image: postgres:15
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: insighter_db
+    ports: ["5432:5432"]
+    volumes: [postgres_data:/var/lib/postgresql/data]
+
+  mlflow:
+    image: ghcr.io/mlflow/mlflow:v2.9.2
+    command: mlflow server --host 0.0.0.0 --backend-store-uri postgresql://user:password@db:5432/mlflow_db
+    ports: ["5000:5000"]
+    depends_on: [db]
+
+volumes:
+  postgres_data:

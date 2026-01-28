@@ -1,0 +1,46 @@
+fastapi
+uvicorn[standard]
+pydantic-settings
+python-multipart
+python-dotenv
+supabase
+sqlalchemy
+psycopg2-binary
+
+# Security & Authentication
+python-jose[cryptography]
+passlib[bcrypt]
+bcrypt
+slowapi
+
+# Data Science Core
+pandas
+numpy
+scipy
+scikit-learn
+
+# Deep Learning
+torch --index-url https://download.pytorch.org/whl/cpu
+tensorflow-cpu
+keras
+
+# Machine Learning & MLOps
+xgboost
+mlflow
+onnx
+onnxruntime
+
+# Visualization
+matplotlib
+seaborn
+plotly
+
+# Execution Environment
+jupyter_client
+ipykernel
+
+# Utilities
+httpx
+pytest
+faker
+docker
