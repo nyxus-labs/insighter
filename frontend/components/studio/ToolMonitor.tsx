@@ -9,6 +9,12 @@ export default function ToolMonitor() {
   const [isOpen, setIsOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<'logs' | 'dlq' | 'tools'>('logs');
 
+  const handleRetry = (msg: any) => {
+    // In a real implementation, this would re-emit the message to the bus
+    console.log('Retrying message:', msg);
+    // For now, we'll just show a notification or log
+  };
+
   if (!isOpen) {
     return (
       <button 
@@ -98,7 +104,10 @@ export default function ToolMonitor() {
                   {JSON.stringify(msg.payload, null, 2)}
                 </pre>
                 <div className="mt-2 flex justify-end">
-                   <button className="text-[10px] bg-red-900/30 hover:bg-red-900/50 text-red-300 px-2 py-1 rounded flex items-center gap-1">
+                   <button 
+                    onClick={() => handleRetry(msg)}
+                    className="text-[10px] bg-red-900/30 hover:bg-red-900/50 text-red-300 px-2 py-1 rounded flex items-center gap-1"
+                   >
                      <RefreshCw className="w-3 h-3" /> Retry
                    </button>
                 </div>

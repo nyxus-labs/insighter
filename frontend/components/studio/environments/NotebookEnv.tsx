@@ -1,11 +1,27 @@
 'use client';
 
-import { Terminal, Play, Plus, Trash2, Loader2, AlertCircle, Save } from 'lucide-react';
+import { 
+  Terminal, 
+  Play, 
+  Plus, 
+  Trash2, 
+  Loader2, 
+  AlertCircle, 
+  Save, 
+  RefreshCcw, 
+  Square,
+  FileCode,
+  Layers,
+  Search,
+  Settings,
+  MoreVertical,
+  ChevronDown
+} from 'lucide-react';
 import CodeEditor from '@/components/ui/CodeEditor';
 import { ToolEnvironmentProps } from '@/lib/tools/types';
 import { useTool } from '@/hooks/useTool';
 import { useToolCommunication } from '@/hooks/useToolCommunication';
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 
 interface NotebookCell {
   id: string;
@@ -17,6 +33,8 @@ interface NotebookCell {
 export default function NotebookEnv({ tool, projectId }: ToolEnvironmentProps) {
   const { initialize, execute, isInitializing, isReady, error } = useTool({ tool, projectId });
   const [lastMessage, setLastMessage] = useState<string | null>(null);
+  const [activeCellId, setActiveCellId] = useState<string | null>('cell-1');
+  const notebookEndRef = useRef<HTMLDivElement>(null);
 
   const { emit } = useToolCommunication({
     toolId: tool.id,
@@ -25,7 +43,6 @@ export default function NotebookEnv({ tool, projectId }: ToolEnvironmentProps) {
       console.log('Notebook received message:', msg);
       if (msg.type === 'DATA_LOAD') {
         setLastMessage(`Received dataset: ${msg.payload.datasetId}`);
-        // Optionally auto-create a cell to load this data
         addCellWithCode(`# Auto-generated from Data Tool\nimport pandas as pd\ndf = pd.read_csv("${msg.payload.url}")\ndf.head()`);
       }
     }
@@ -52,6 +69,7 @@ export default function NotebookEnv({ tool, projectId }: ToolEnvironmentProps) {
       status: 'idle'
     };
     setCells(prev => [...prev, newCell]);
+    setActiveCellId(newCell.id);
   };
 
   const addCellWithCode = (code: string) => {
@@ -62,6 +80,7 @@ export default function NotebookEnv({ tool, projectId }: ToolEnvironmentProps) {
       status: 'idle'
     };
     setCells(prev => [...prev, newCell]);
+    setActiveCellId(newCell.id);
   };
 
   const deleteCell = (id: string) => {
@@ -76,7 +95,6 @@ export default function NotebookEnv({ tool, projectId }: ToolEnvironmentProps) {
     const cell = cells.find(c => c.id === id);
     if (!cell) return;
 
-    // Update status to running
     setCells(prev => prev.map(c => c.id === id ? { ...c, status: 'running', output: '' } : c));
 
     try {
@@ -102,11 +120,21 @@ export default function NotebookEnv({ tool, projectId }: ToolEnvironmentProps) {
     }
   };
 
+  const runAllCells = async () => {
+    for (const cell of cells) {
+      await runCell(cell.id);
+    }
+  };
+
+  const clearOutputs = () => {
+    setCells(prev => prev.map(c => ({ ...c, output: '', status: 'idle' })));
+  };
+
   if (isInitializing) {
     return (
       <div className="flex flex-col items-center justify-center h-[60vh] text-slate-400">
         <Loader2 className="w-8 h-8 animate-spin mb-4 text-electric-400" />
-        <p>Provisioning {tool.name} Runtime...</p>
+        <p className="font-mono text-sm tracking-widest">PROVISIONING {tool.name.toUpperCase()} RUNTIME...</p>
       </div>
     );
   }
@@ -124,98 +152,215 @@ export default function NotebookEnv({ tool, projectId }: ToolEnvironmentProps) {
   }
 
   return (
-    <div className="max-w-5xl mx-auto pb-20">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-6 sticky top-0 bg-[#0a0a0a] z-20 py-4 border-b border-onyx-800">
-        <div>
-           <h2 className="text-xl font-bold text-white flex items-center gap-2">
-            <Terminal className="w-5 h-5 text-electric-400" /> 
-            Python Notebook
-           </h2>
-           {lastMessage && (
-             <span className="text-xs text-neon-emerald animate-pulse flex items-center gap-1 mt-1">
-               <span className="w-1.5 h-1.5 rounded-full bg-neon-emerald inline-block"></span>
-               {lastMessage}
-             </span>
-           )}
+    <div className="flex h-[calc(100vh-120px)] bg-[#0a0a0a] overflow-hidden border border-onyx-800 rounded-2xl">
+      {/* Activity Bar (VS Code Style) */}
+      <div className="w-12 bg-onyx-950 border-r border-onyx-800 flex flex-col items-center py-4 gap-4">
+        <div className="p-2 text-electric-400 border-l-2 border-electric-400">
+          <FileCode className="w-5 h-5" />
         </div>
-        <div className="flex flex-col items-end"> 
-            <div className="flex items-center gap-3">
-              <span className="font-semibold text-slate-300">{tool?.name || 'Notebook'}</span>
-              {isReady && <span className="text-xs px-2 py-0.5 bg-green-500/10 text-green-400 border border-green-500/20 rounded-full">Kernel Ready</span>}
-            </div>
-            <p className="text-xs text-slate-500 font-mono mt-1">Python 3.12 • Local Kernel</p>
+        <div className="p-2 text-slate-600 hover:text-slate-400 cursor-pointer transition">
+          <Search className="w-5 h-5" />
         </div>
-        <div className="flex gap-2">
-            <button className="p-2 hover:bg-onyx-800 rounded-lg text-slate-400 transition" title="Save Notebook">
-                <Save className="w-4 h-4" />
+        <div className="p-2 text-slate-600 hover:text-slate-400 cursor-pointer transition">
+          <Layers className="w-5 h-5" />
+        </div>
+        <div className="mt-auto p-2 text-slate-600 hover:text-slate-400 cursor-pointer transition">
+          <Settings className="w-5 h-5" />
+        </div>
+      </div>
+
+      {/* Main Editor Area */}
+      <div className="flex-1 flex flex-col min-w-0">
+        {/* Notebook Toolbar */}
+        <div className="h-10 bg-onyx-900 border-b border-onyx-800 flex items-center px-4 justify-between">
+          <div className="flex items-center gap-1">
+            <button 
+              onClick={addCell}
+              className="flex items-center gap-1.5 px-2 py-1 hover:bg-onyx-800 rounded text-xs text-slate-300 transition focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-electric-400/50"
+              aria-label="Add Code Cell"
+            >
+              <Plus className="w-3.5 h-3.5 text-electric-400" /> Code
             </button>
+            <div className="w-px h-4 bg-onyx-800 mx-1"></div>
+            <button 
+              onClick={runAllCells}
+              className="flex items-center gap-1.5 px-2 py-1 hover:bg-onyx-800 rounded text-xs text-slate-300 transition focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-emerald-400/50"
+              aria-label="Run All Cells"
+            >
+              <Play className="w-3.5 h-3.5 text-emerald-400" /> Run All
+            </button>
+            <button 
+              onClick={clearOutputs}
+              className="flex items-center gap-1.5 px-2 py-1 hover:bg-onyx-800 rounded text-xs text-slate-300 transition focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-blue-400/50"
+              aria-label="Clear All Outputs"
+            >
+              <RefreshCcw className="w-3.5 h-3.5 text-blue-400" /> Clear
+            </button>
+            <div className="w-px h-4 bg-onyx-800 mx-1"></div>
+            <button 
+              className="flex items-center gap-1.5 px-2 py-1 hover:bg-onyx-800 rounded text-xs text-slate-300 transition focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-slate-400/50"
+              aria-label="Save Notebook"
+            >
+              <Save className="w-3.5 h-3.5 text-slate-400" /> Save
+            </button>
+          </div>
+
+          <div className="flex items-center gap-4">
+            {lastMessage && (
+              <span className="text-[10px] text-neon-emerald font-mono animate-pulse">
+                {lastMessage}
+              </span>
+            )}
+            <div className="flex items-center gap-2 bg-onyx-950 px-3 py-1 rounded-full border border-onyx-800">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]"></span>
+              <span className="text-[10px] font-mono text-slate-400">Python 3.12 (ipykernel)</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Notebook Content */}
+        <div className="flex-1 overflow-y-auto p-6 space-y-4 custom-scrollbar">
+          {cells.map((cell, index) => (
+            <div 
+              key={cell.id} 
+              onClick={() => setActiveCellId(cell.id)}
+              className={`group relative flex gap-4 transition-all duration-300 ${
+                activeCellId === cell.id ? 'opacity-100' : 'opacity-80'
+              }`}
+            >
+              {/* Left Gutter */}
+              <div className="w-12 flex flex-col items-end pt-2">
+                <div className={`text-[10px] font-mono transition-colors ${
+                  activeCellId === cell.id ? 'text-electric-400 font-bold' : 'text-slate-600'
+                }`}>
+                  [{cell.status === 'running' ? '*' : index + 1}]
+                </div>
+              </div>
+
+              {/* Cell Container */}
+              <div className={`flex-1 flex flex-col gap-2 rounded-lg transition-all duration-300 border ${
+                activeCellId === cell.id 
+                ? 'border-electric-500/30 bg-electric-500/[0.02]' 
+                : 'border-transparent hover:border-onyx-800'
+              }`}>
+                {/* Editor Section */}
+                <div className="relative group/editor">
+                  <div className={`absolute -left-[1px] top-0 bottom-0 w-1 rounded-l-lg transition-colors ${
+                    activeCellId === cell.id ? 'bg-electric-400' : 'bg-transparent'
+                  }`}></div>
+                  
+                  <div className="rounded-r-lg overflow-hidden bg-[#0d0d0d] border border-onyx-800/50">
+                    <CodeEditor 
+                      value={cell.code} 
+                      onChange={(val) => updateCellCode(cell.id, val || '')}
+                      height="200px"
+                    />
+                  </div>
+
+                  {/* Inline Cell Actions */}
+                  <div className={`absolute top-2 right-2 flex items-center gap-1 transition-opacity ${
+                    activeCellId === cell.id ? 'opacity-100' : 'opacity-0'
+                  }`}>
+                    <button 
+                      onClick={(e) => { e.stopPropagation(); runCell(cell.id); }}
+                      disabled={cell.status === 'running'}
+                      className="p-1.5 hover:bg-onyx-800 rounded text-emerald-400 transition focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-emerald-400/50"
+                      aria-label="Run Cell"
+                    >
+                      {cell.status === 'running' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Play className="w-3.5 h-3.5" />}
+                    </button>
+                    <button 
+                      onClick={(e) => { 
+                        e.stopPropagation(); 
+                        if (cell.code.trim() && !confirm('Delete this cell and its code?')) return;
+                        deleteCell(cell.id); 
+                      }}
+                      className="p-1.5 hover:bg-onyx-800 rounded text-slate-500 hover:text-red-400 transition focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-red-400/50"
+                      aria-label="Delete Cell"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Output Section */}
+                {(cell.output || cell.status === 'running') && (
+                  <div className="ml-0 p-4 rounded-lg bg-onyx-950/50 border border-onyx-800/30 font-mono text-xs text-slate-300 overflow-x-auto min-h-[40px]">
+                    {cell.status === 'running' && !cell.output ? (
+                      <div className="flex items-center gap-2 text-slate-500 italic">
+                        <Loader2 className="w-3 h-3 animate-spin" />
+                        Executing...
+                      </div>
+                    ) : (
+                      <pre className="whitespace-pre-wrap">{cell.output}</pre>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          ))}
+
+          {/* Bottom Spacer / Add Cell */}
+          <div className="h-20 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity">
+            <button 
+              onClick={addCell}
+              className="flex items-center gap-2 px-4 py-1.5 bg-onyx-900 border border-onyx-800 rounded-full text-xs text-slate-400 hover:text-white hover:border-electric-400 transition"
+            >
+              <Plus className="w-3.5 h-3.5" /> Add Code Cell
+            </button>
+          </div>
+          <div ref={notebookEndRef} />
         </div>
       </div>
-      
-      {/* Cells */}
-      <div className="space-y-6">
-        {cells.map((cell, index) => (
-          <div key={cell.id} className="group relative pl-8">
-            {/* Cell Index / Controls */}
-            <div className="absolute left-0 top-2 flex flex-col items-center gap-2 w-6">
-                <span className="text-xs font-mono text-slate-600">[{index + 1}]</span>
-                <button 
-                    onClick={() => deleteCell(cell.id)}
-                    className="text-slate-700 hover:text-red-400 opacity-0 group-hover:opacity-100 transition"
-                >
-                    <Trash2 className="w-3 h-3" />
-                </button>
-            </div>
 
-            {/* Editor Area */}
-            <div className={`border rounded-xl overflow-hidden transition-all duration-300 ${
-                cell.status === 'running' ? 'border-electric-500/50 shadow-[0_0_15px_-3px_rgba(124,58,237,0.3)]' : 
-                cell.status === 'error' ? 'border-red-500/30' : 'border-onyx-800 bg-onyx-900/30'
-            }`}>
-                {/* Cell Toolbar */}
-                <div className="flex items-center justify-between px-3 py-1 bg-onyx-900/50 border-b border-onyx-800/50">
-                    <span className="text-xs text-slate-500 font-mono">Python</span>
-                    <button 
-                        onClick={() => runCell(cell.id)}
-                        disabled={cell.status === 'running'}
-                        className={`flex items-center gap-1.5 px-2 py-1 rounded text-xs font-medium transition ${
-                            cell.status === 'running' 
-                            ? 'text-slate-500 cursor-not-allowed' 
-                            : 'text-electric-400 hover:bg-electric-500/10'
-                        }`}
-                    >
-                        {cell.status === 'running' ? <Loader2 className="w-3 h-3 animate-spin" /> : <Play className="w-3 h-3" />}
-                        Run
-                    </button>
-                </div>
-                
-                <CodeEditor 
-                    value={cell.code} 
-                    onChange={(val) => updateCellCode(cell.id, val || '')}
-                    height="auto" // Let it grow or fix it? Fixed for now to avoid complexity
-                />
+      {/* Context Sidebar (JupyterLab Style) */}
+      <div className="w-64 bg-onyx-950 border-l border-onyx-800 hidden xl:flex flex-col">
+        <div className="p-3 border-b border-onyx-800 flex items-center justify-between">
+          <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Variable Explorer</span>
+          <ChevronDown className="w-3.5 h-3.5 text-slate-600" />
+        </div>
+        <div className="flex-1 p-4">
+          <div className="space-y-3">
+            <div className="flex justify-between items-center text-[10px]">
+              <span className="text-electric-400 font-mono">df</span>
+              <span className="text-slate-600">DataFrame (500, 12)</span>
             </div>
-
-            {/* Output Area */}
-            {cell.output && (
-                <div className="mt-2 ml-1 p-3 font-mono text-sm bg-onyx-950 border-l-2 border-onyx-700 text-slate-300 whitespace-pre-wrap overflow-x-auto">
-                    {cell.output}
-                </div>
-            )}
+            <div className="flex justify-between items-center text-[10px]">
+              <span className="text-electric-400 font-mono">model</span>
+              <span className="text-slate-600">XGBClassifier</span>
+            </div>
+            <div className="flex justify-between items-center text-[10px]">
+              <span className="text-electric-400 font-mono">accuracy</span>
+              <span className="text-slate-600">float (0.892)</span>
+            </div>
           </div>
-        ))}
-      </div>
-
-      {/* Add Cell Button */}
-      <div className="mt-8 flex justify-center">
-        <button 
-            onClick={addCell}
-            className="flex items-center gap-2 px-4 py-2 bg-onyx-800 hover:bg-onyx-700 text-slate-300 rounded-full text-sm font-medium transition border border-onyx-700 hover:border-slate-600"
-        >
-            <Plus className="w-4 h-4" /> Code Cell
-        </button>
+        </div>
+        
+        <div className="p-3 border-t border-onyx-800 border-b border-onyx-800 flex items-center justify-between">
+          <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">System Status</span>
+        </div>
+        <div className="p-4 space-y-4">
+          <div className="space-y-1">
+            <div className="flex justify-between text-[9px] text-slate-500">
+              <span>CPU USAGE</span>
+              <span>12%</span>
+            </div>
+            <div className="h-1 bg-onyx-900 rounded-full overflow-hidden">
+              <div className="h-full bg-electric-500 w-[12%]"></div>
+            </div>
+          </div>
+          <div className="space-y-1">
+            <div className="flex justify-between text-[9px] text-slate-500">
+              <span>MEMORY</span>
+              <span>1.2GB / 8GB</span>
+            </div>
+            <div className="h-1 bg-onyx-900 rounded-full overflow-hidden">
+              <div className="h-full bg-neon-violet w-[15%]"></div>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );
 }
+

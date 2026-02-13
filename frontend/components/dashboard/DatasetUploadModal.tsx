@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { X, Loader2, UploadCloud } from 'lucide-react';
-import { createClient } from '@/utils/supabase/client';
+import api from '@/lib/api';
 
 interface DatasetUploadModalProps {
   isOpen: boolean;
@@ -14,7 +14,6 @@ export default function DatasetUploadModal({ isOpen, onClose, onSuccess }: Datas
   const [file, setFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const supabase = createClient();
 
   if (!isOpen) return null;
 
@@ -32,26 +31,16 @@ export default function DatasetUploadModal({ isOpen, onClose, onSuccess }: Datas
     setError(null);
 
     try {
-      const session = await supabase.auth.getSession();
-      const token = session.data.session?.access_token;
-
       const formData = new FormData();
       formData.append('file', file);
 
-      const res = await fetch('http://localhost:8000/api/datasets/upload', {
-        method: 'POST',
+      const res = await api.post('/api/datasets/upload', formData, {
         headers: {
-          'Authorization': `Bearer ${token}`
-        },
-        body: formData
+          'Content-Type': 'multipart/form-data'
+        }
       });
 
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.detail || 'Failed to upload dataset');
-      }
-
-      const newDataset = await res.json();
+      const newDataset = res.data;
       // The upload endpoint returns limited info, we might want to refetch list or construct object
       // For now, construct a temporary object to display
       const displayDataset = {
@@ -75,14 +64,18 @@ export default function DatasetUploadModal({ isOpen, onClose, onSuccess }: Datas
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="upload-modal-title">
       <div className="bg-onyx-900 border border-onyx-800 rounded-2xl w-full max-w-md shadow-2xl relative overflow-hidden">
         <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-electric-400 to-neon-purple"></div>
         
         <div className="p-6">
           <div className="flex justify-between items-center mb-6">
-            <h2 className="text-xl font-bold text-white">Upload Dataset</h2>
-            <button onClick={onClose} className="text-slate-400 hover:text-white transition">
+            <h2 id="upload-modal-title" className="text-xl font-bold text-white">Upload Dataset</h2>
+            <button 
+              onClick={onClose} 
+              className="text-slate-400 hover:text-white transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-electric-400/50 rounded"
+              aria-label="Close modal"
+            >
               <X className="w-5 h-5" />
             </button>
           </div>
@@ -94,12 +87,14 @@ export default function DatasetUploadModal({ isOpen, onClose, onSuccess }: Datas
           )}
 
           <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="border-2 border-dashed border-onyx-700 rounded-xl p-8 flex flex-col items-center justify-center text-center hover:border-electric-400/50 hover:bg-onyx-900/50 transition cursor-pointer relative">
+            <div className="border-2 border-dashed border-onyx-700 rounded-xl p-8 flex flex-col items-center justify-center text-center hover:border-electric-400/50 hover:bg-onyx-900/50 transition cursor-pointer relative focus-within:ring-2 focus-within:ring-electric-400/50 focus-within:border-electric-400/50">
               <input 
                 type="file" 
+                id="dataset-file"
                 className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                 onChange={handleFileChange}
                 accept=".csv,.parquet,.json,.xlsx"
+                aria-label="Select dataset file"
               />
               <div className="w-12 h-12 bg-onyx-800 rounded-full flex items-center justify-center mb-3 text-electric-400">
                 <UploadCloud className="w-6 h-6" />
@@ -121,17 +116,17 @@ export default function DatasetUploadModal({ isOpen, onClose, onSuccess }: Datas
               <button
                 type="button"
                 onClick={onClose}
-                className="px-4 py-2 rounded-lg text-slate-400 hover:text-white hover:bg-onyx-800 transition text-sm font-medium"
+                className="px-4 py-2 rounded-lg text-slate-400 hover:text-white hover:bg-onyx-800 transition text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-onyx-700"
               >
                 Cancel
               </button>
               <button
                 type="submit"
                 disabled={loading || !file}
-                className="px-6 py-2 rounded-lg bg-electric-600 hover:bg-electric-500 text-white font-medium transition shadow-glow-cyan flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-6 py-2 rounded-lg bg-electric-600 hover:bg-electric-500 text-white font-medium transition shadow-glow-cyan flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-electric-400/50"
               >
                 {loading && <Loader2 className="w-4 h-4 animate-spin" />}
-                Upload
+                {loading ? 'Uploading...' : 'Upload'}
               </button>
             </div>
           </form>

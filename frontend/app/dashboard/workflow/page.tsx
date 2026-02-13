@@ -2,6 +2,10 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { useProjectState } from '@/lib/contexts/ProjectStateContext';
+import { formatDistanceToNow } from 'date-fns';
+import api from '@/lib/api';
 import { 
   ArrowLeft, 
   Search, 
@@ -10,57 +14,73 @@ import {
   Database,
   X,
   Play,
-  RotateCcw
+  RotateCcw,
+  ArrowRight,
+  ChevronRight
 } from 'lucide-react';
 import { TOOLS, CATEGORIES, Tool } from '@/lib/constants/tools';
 
 // --- Types ---
-
-type HistoryItem = {
-  id: string;
-  timestamp: string;
-  toolName: string;
-  actionType: 'Access' | 'Create' | 'Update' | 'Delete' | 'Share';
-  description: string;
-};
-
-type SharedDataItem = {
+interface SharedDataItem {
   id: string;
   name: string;
-  format: 'JSON' | 'CSV' | 'Parquet' | 'Model';
+  format: string;
   source: string;
   size: string;
   lastUpdated: string;
-};
-
-// --- Mock Data ---
-
-// TOOLS imported from @/lib/constants/tools
-
-const MOCK_HISTORY: HistoryItem[] = [
-  { id: '1', timestamp: '2023-10-25 10:30', toolName: 'Notebook', actionType: 'Update', description: 'Modified main_analysis.ipynb' },
-  { id: '2', timestamp: '2023-10-25 10:15', toolName: 'Datasets', actionType: 'Access', description: 'Viewed customer_churn.csv' },
-  { id: '3', timestamp: '2023-10-25 09:45', toolName: 'Deployment', actionType: 'Create', description: 'Deployed model churn-v1' },
-];
-
-const MOCK_SHARED_DATA: SharedDataItem[] = [
-  { id: 'sd1', name: 'processed_features.parquet', format: 'Parquet', source: 'Notebook', size: '12 MB', lastUpdated: '10 mins ago' },
-  { id: 'sd2', name: 'model_metrics.json', format: 'JSON', source: 'Experiments', size: '45 KB', lastUpdated: '1 hour ago' },
-];
+}
 
 export default function GlobalWorkflowPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
   const [showHistory, setShowHistory] = useState(false);
   const [showSharedData, setShowSharedData] = useState(false);
-  const [history, setHistory] = useState<HistoryItem[]>(MOCK_HISTORY);
-  const [sharedData, setSharedData] = useState<SharedDataItem[]>(MOCK_SHARED_DATA);
+  const [history, setHistory] = useState<any[]>([]);
+  const [sharedData, setSharedData] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Simulate loading
+  const fetchData = async () => {
+    try {
+      setIsLoading(true);
+      const [historyRes, datasetsRes] = await Promise.all([
+        api.get('/api/projects/stats/achievements'),
+        api.get('/api/projects/stats/telemetry') // Just placeholder for now or use real datasets if needed
+      ]);
+      
+      // Map achievements to history items for workflow page
+      const mappedHistory = historyRes.data.map((h: any, i: number) => ({
+        id: `h-${i}`,
+        timestamp: h.date,
+        toolName: h.title,
+        actionType: h.icon === 'Plus' ? 'Create' : 
+                    h.icon === 'Zap' ? 'Update' : 
+                    h.icon === 'Rocket' ? 'Share' : 'Access',
+        description: `Action completed on project resource.`
+      }));
+      
+      setHistory(mappedHistory);
+      
+      // Fetch real datasets for shared data
+      const dsRes = await api.get('/api/data/');
+      const mappedDatasets = dsRes.data.map((ds: any) => ({
+        id: ds.id,
+        name: ds.name,
+        format: ds.file_type?.toUpperCase() || 'DATA',
+        source: 'Datasets',
+        size: ds.size_bytes ? `${(ds.size_bytes / 1024 / 1024).toFixed(1)} MB` : '0 MB',
+        lastUpdated: ds.created_at
+      }));
+      
+      setSharedData(mappedDatasets);
+    } catch (error) {
+      console.error('Failed to fetch workflow data', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const timer = setTimeout(() => setIsLoading(false), 800);
-    return () => clearTimeout(timer);
+    fetchData();
   }, []);
 
   const filteredTools = TOOLS.filter(tool => {
@@ -211,7 +231,7 @@ export default function GlobalWorkflowPage() {
                              <h4 className="text-sm font-bold text-slate-200 mb-1 truncate" title={item.name}>{item.name}</h4>
                              <div className="flex justify-between items-center text-[10px] text-slate-500">
                                  <span>From: {item.source}</span>
-                                 <span>{item.lastUpdated}</span>
+                                 <span>{item.lastUpdated === 'Just now' ? 'Just now' : formatDistanceToNow(new Date(item.lastUpdated), { addSuffix: true })}</span>
                              </div>
                          </div>
                      ))}
@@ -248,7 +268,9 @@ export default function GlobalWorkflowPage() {
                           history.map((item) => (
                               <div key={item.id} className="relative pl-6 pb-6 border-l border-onyx-800 last:pb-0">
                                   <div className="absolute left-[-5px] top-0 w-2.5 h-2.5 rounded-full bg-onyx-800 border-2 border-slate-600"></div>
-                                  <div className="text-xs text-slate-500 mb-1">{item.timestamp}</div>
+                                  <div className="text-xs text-slate-500 mb-1">
+                                      {item.timestamp === 'Initial' ? 'Initial' : formatDistanceToNow(new Date(item.timestamp), { addSuffix: true })}
+                                  </div>
                                   <div className="bg-onyx-950 border border-onyx-800 rounded-lg p-3 hover:border-orange-400/30 transition">
                                       <div className="flex items-center justify-between mb-1">
                                           <span className="text-sm font-bold text-white">{item.toolName}</span>

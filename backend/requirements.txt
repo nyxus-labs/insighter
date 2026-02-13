@@ -18,6 +18,11 @@ pandas
 numpy
 scipy
 scikit-learn
+statsmodels
+
+# Data Analytics
+duckdb
+pyarrow
 
 # Deep Learning
 torch --index-url https://download.pytorch.org/whl/cpu
@@ -26,14 +31,38 @@ keras
 
 # Machine Learning & MLOps
 xgboost
+lightgbm
+catboost
 mlflow
 onnx
 onnxruntime
+
+# Data Cleaning & Profiling
+ydata-profiling
+great-expectations
+missingno
+pyjanitor
 
 # Visualization
 matplotlib
 seaborn
 plotly
+altair
+bokeh
+
+# Storytelling & Apps
+dash
+streamlit
+
+# Labeling
+label-studio
+doccano
+roboflow
+
+# Automation & Pipelines
+apache-airflow
+prefect
+dagster
 
 # Execution Environment
 jupyter_client

@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { Code, Search, Filter, Plus, Play, MoreVertical, Clock, Cpu, Share2, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { useUser } from '@/contexts/UserContext';
-import { createClient } from '@/utils/supabase/client';
+import api from '@/lib/api';
 import NotebookCreateModal from '@/components/dashboard/NotebookCreateModal';
 
 export default function NotebooksPage() {
@@ -12,26 +12,16 @@ export default function NotebooksPage() {
   const [notebooks, setNotebooks] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const supabase = createClient();
 
   const fetchNotebooks = async () => {
     try {
       setLoading(true);
-      const session = await supabase.auth.getSession();
-      const token = session.data.session?.access_token;
-      
-      if (!token) return;
-
-      const res = await fetch('http://localhost:8000/api/notebooks/', {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      
-      if (res.ok) {
-        const data = await res.json();
-        setNotebooks(data);
+      const res = await api.get('/api/notebooks/');
+      setNotebooks(res.data);
+    } catch (e: any) {
+      if (e.message !== 'Auth session missing!') {
+        console.error(e);
       }
-    } catch (e) {
-      console.error(e);
     } finally {
       setLoading(false);
     }
@@ -56,7 +46,7 @@ export default function NotebooksPage() {
         </div>
         <button 
           onClick={() => setIsModalOpen(true)}
-          className="bg-electric-600 hover:bg-electric-500 text-white px-6 py-2.5 rounded-xl font-bold shadow-glow-cyan transition flex items-center gap-2"
+          className="bg-electric-600 hover:bg-electric-500 text-white px-6 py-2.5 rounded-xl font-bold shadow-glow-cyan transition flex items-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-electric-400/50"
         >
           <Plus className="w-4 h-4" /> New Notebook
         </button>
@@ -68,10 +58,10 @@ export default function NotebooksPage() {
           <input 
             type="text" 
             placeholder="Search notebooks..." 
-            className="w-full bg-onyx-900/50 border border-onyx-800 rounded-xl py-3 pl-10 pr-4 text-slate-300 focus:outline-none focus:border-electric-400 transition"
+            className="w-full bg-onyx-900/50 border border-onyx-800 rounded-xl py-3 pl-10 pr-4 text-slate-300 focus:outline-none focus:border-electric-400 transition focus-visible:ring-1 focus-visible:ring-electric-400/50"
           />
         </div>
-        <button className="px-4 py-2 bg-onyx-900 border border-onyx-800 rounded-xl text-slate-400 hover:text-white transition flex items-center gap-2">
+        <button className="px-4 py-2 bg-onyx-900 border border-onyx-800 rounded-xl text-slate-400 hover:text-white transition flex items-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-electric-400/50">
           <Filter className="w-4 h-4" /> Filters
         </button>
       </div>
@@ -115,13 +105,22 @@ export default function NotebooksPage() {
                  </div>
   
                  <div className="flex gap-2 mt-auto">
-                    <Link href={`/studio/${nb.project_id}/tool/notebook?notebookId=${nb.id}`} className="flex-1 bg-onyx-800 hover:bg-electric-600 hover:text-white text-slate-300 py-2 rounded-lg text-sm font-bold transition flex items-center justify-center gap-2 border border-onyx-700 hover:border-electric-500">
+                    <Link 
+                      href={`/studio/${nb.project_id}/tool/notebook?notebookId=${nb.id}`} 
+                      className="flex-1 bg-onyx-800 hover:bg-electric-600 hover:text-white text-slate-300 py-2 rounded-lg text-sm font-bold transition flex items-center justify-center gap-2 border border-onyx-700 hover:border-electric-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-electric-400/50"
+                    >
                        <Play className="w-3 h-3 fill-current" /> Open
                     </Link>
-                    <button className="p-2 bg-onyx-800 hover:bg-onyx-700 rounded-lg text-slate-400 hover:text-white transition border border-onyx-700">
+                    <button 
+                      className="p-2 bg-onyx-800 hover:bg-onyx-700 rounded-lg text-slate-400 hover:text-white transition border border-onyx-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-electric-400/50"
+                      aria-label="Share Notebook"
+                    >
                        <Share2 className="w-4 h-4" />
                     </button>
-                    <button className="p-2 bg-onyx-800 hover:bg-onyx-700 rounded-lg text-slate-400 hover:text-white transition border border-onyx-700">
+                    <button 
+                      className="p-2 bg-onyx-800 hover:bg-onyx-700 rounded-lg text-slate-400 hover:text-white transition border border-onyx-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-electric-400/50"
+                      aria-label="More Options"
+                    >
                        <MoreVertical className="w-4 h-4" />
                     </button>
                  </div>
@@ -131,7 +130,8 @@ export default function NotebooksPage() {
            {/* Create New Card */}
            <button 
               onClick={() => setIsModalOpen(true)}
-              className="border border-dashed border-onyx-700 rounded-2xl p-6 flex flex-col items-center justify-center text-slate-500 hover:text-electric-400 hover:border-electric-400/50 hover:bg-onyx-900/30 transition min-h-[240px] group"
+              aria-label="Create New Notebook"
+              className="border border-dashed border-onyx-700 rounded-2xl p-6 flex flex-col items-center justify-center text-slate-500 hover:text-electric-400 hover:border-electric-400/50 hover:bg-onyx-900/30 transition min-h-[240px] group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-electric-400/50"
            >
               <div className="w-14 h-14 rounded-full bg-onyx-900 flex items-center justify-center mb-4 group-hover:scale-110 transition border border-onyx-800 group-hover:border-electric-400/30 shadow-lg">
                  <Plus className="w-6 h-6" />

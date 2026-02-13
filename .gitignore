@@ -375,3 +375,4 @@ secure/
 .secure/
 sensitive/
 
+next.config.mjs

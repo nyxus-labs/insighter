@@ -1,10 +1,12 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { SerializableTool } from '@/lib/tools/types';
-import config from '@/lib/config';
+import api from '@/lib/api';
+import { createClient } from '@/utils/supabase/client';
 
 interface UseToolOptions {
   tool: SerializableTool;
   projectId: string;
+  enableRealtime?: boolean;
 }
 
 interface ToolState {
@@ -13,29 +15,70 @@ interface ToolState {
   isReady: boolean;
   error: string | null;
   data: any;
+  realtimeData: any;
 }
 
-export function useTool({ tool, projectId }: UseToolOptions) {
+export function useTool({ tool, projectId, enableRealtime = false }: UseToolOptions) {
   const [state, setState] = useState<ToolState>({
     isInitializing: false,
     isExecuting: false,
     isReady: false,
     error: null,
     data: null,
+    realtimeData: null,
   });
 
+  const wsRef = useRef<WebSocket | null>(null);
+
+  // WebSocket Connection Logic
+  const connectWebSocket = useCallback(async () => {
+    // Get token from Supabase session
+    const supabase = createClient();
+    const { data: { session } } = await supabase.auth.getSession();
+    const token = session?.access_token;
+
+    const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+    const WS_URL = API_URL.replace('http', 'ws');
+    
+    // Pass token as sub-protocol for authentication
+    const ws = new WebSocket(
+      `${WS_URL}/ws/tools/${tool.environmentType}/${projectId}`,
+      token ? ['auth', token] : undefined
+    );
+
+    ws.onopen = () => {
+      console.log(`[WS] Connected to ${tool.environmentType} tool`);
+    };
+
+    ws.onmessage = (event) => {
+      try {
+        const payload = JSON.parse(event.data);
+        setState(prev => ({ ...prev, realtimeData: payload }));
+      } catch (e) {
+        console.error('[WS] Error parsing message:', e);
+      }
+    };
+
+    ws.onerror = (error) => {
+      console.error('[WS] Error:', error);
+    };
+
+    ws.onclose = () => {
+      console.log(`[WS] Disconnected from ${tool.environmentType} tool`);
+      // Optional: Reconnect logic here
+    };
+
+    wsRef.current = ws;
+  }, [tool.environmentType, projectId]);
+
+  // Initialize tool environment
   const initialize = useCallback(async () => {
     setState(prev => ({ ...prev, isInitializing: true, error: null }));
     try {
-      const baseUrl = config.api.baseUrl || 'http://localhost:8000';
-      const endpoint = `${baseUrl}/api/tools/${tool.environmentType}/initialize/${projectId}`;
-      const response = await fetch(endpoint, { method: 'POST' });
+      const endpoint = `/api/tools/${tool.environmentType}/initialize/${projectId}`;
+      const response = await api.post(endpoint);
       
-      if (!response.ok) {
-         throw new Error(`Initialization failed: ${response.statusText}`);
-      }
-      
-      const data = await response.json();
+      const data = response.data;
       
       setState(prev => ({ 
         ...prev, 
@@ -43,31 +86,31 @@ export function useTool({ tool, projectId }: UseToolOptions) {
         isReady: true,
         data: data
       }));
+
+      // Connect WebSocket if real-time is enabled
+      if (enableRealtime) {
+        await connectWebSocket();
+      }
     } catch (err: any) {
       setState(prev => ({ 
         ...prev, 
         isInitializing: false, 
-        error: err.message || 'Failed to initialize tool' 
+        error: err.response?.data?.detail || err.message || 'Failed to initialize tool' 
       }));
     }
-  }, [tool.environmentType, projectId]);
+  }, [tool.environmentType, projectId, enableRealtime, connectWebSocket]);
 
+  // Execute an action on the backend tool
   const execute = useCallback(async (action: string, payload: any) => {
     setState(prev => ({ ...prev, isExecuting: true, error: null }));
     try {
-      const baseUrl = config.api.baseUrl || 'http://localhost:8000';
-      const endpoint = `${baseUrl}/api/tools/${tool.environmentType}/execute/${action}`;
-      const response = await fetch(endpoint, { 
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
+      const endpoint = `/api/tools/${tool.environmentType}/execute/${action}`;
+      const response = await api.post(endpoint, {
+        ...payload,
+        project_id: projectId
       });
       
-      if (!response.ok) {
-         throw new Error(`Execution failed: ${response.statusText}`);
-      }
-
-      const result = await response.json();
+      const result = response.data;
 
       setState(prev => ({ ...prev, isExecuting: false }));
       return result;
@@ -75,11 +118,20 @@ export function useTool({ tool, projectId }: UseToolOptions) {
       setState(prev => ({ 
         ...prev, 
         isExecuting: false, 
-        error: err.message || 'Execution failed' 
+        error: err.response?.data?.detail || err.message || 'Execution failed' 
       }));
       throw err;
     }
-  }, [tool.environmentType]);
+  }, [tool.environmentType, projectId]);
+
+  // Cleanup WebSocket on unmount
+  useEffect(() => {
+    return () => {
+      if (wsRef.current) {
+        wsRef.current.close();
+      }
+    };
+  }, []);
 
   return {
     ...state,

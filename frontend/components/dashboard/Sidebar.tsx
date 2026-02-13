@@ -3,8 +3,8 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname, useRouter } from 'next/navigation';
-import { createBrowserClient } from '@supabase/ssr';
-import { Folder, Database, Code, BarChart, Settings, LogOut, Workflow } from 'lucide-react';
+import { createClient } from '@/utils/supabase/client';
+import { Folder, Database, Code, BarChart, Settings, LogOut, Workflow, Layout, Users, Tag } from 'lucide-react';
 import { useState } from 'react';
 import { getFullName } from '@/utils/user';
 import { useUser } from '@/contexts/UserContext';
@@ -15,10 +15,7 @@ export default function Sidebar() {
   const { user: profile } = useUser();
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   
-  const supabase = createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  );
+  const supabase = createClient();
 
   const handleLogout = async () => {
     setIsProfileOpen(false);
@@ -30,10 +27,12 @@ export default function Sidebar() {
 
   const navItems = [
     { icon: <Folder />, label: 'Projects', href: '/dashboard' },
+    { icon: <Layout />, label: 'Workspaces', href: '/workspaces' },
+    { icon: <Users />, label: 'Collaboration', href: '/dashboard/collaboration' },
     { icon: <Database />, label: 'Data', href: '/dashboard/data' },
+    { icon: <Tag />, label: 'Labeling', href: '/dashboard/labeling' },
     { icon: <Code />, label: 'Notebooks', href: '/dashboard/notebooks' },
     { icon: <BarChart />, label: 'Models', href: '/dashboard/models' },
-    { icon: <Workflow />, label: 'Workflow', href: '/dashboard/workflow' },
   ];
 
   return (
@@ -48,10 +47,10 @@ export default function Sidebar() {
         />
       </div>
       
-      <nav className="flex flex-col gap-6 w-full px-2 mt-4">
+      <nav className="flex flex-col gap-6 w-full px-2 mt-4" aria-label="Main Navigation">
         {navItems.map((item) => (
           <NavItem 
-            key={item.href} 
+            key={item.label} 
             icon={item.icon} 
             label={item.label} 
             href={item.href} 
@@ -63,19 +62,25 @@ export default function Sidebar() {
       <div className="mt-auto flex flex-col gap-6 w-full px-2 mb-4">
         <NavItem icon={<Settings />} label="Settings" href="/dashboard/settings" active={pathname === '/dashboard/settings'} />
         
-        <div onClick={handleLogout} className="group w-12 h-12 rounded-2xl flex items-center justify-center transition-all duration-300 cursor-pointer text-slate-500 hover:bg-red-500/10 hover:text-red-400 border border-transparent hover:border-red-500/50 mx-auto relative">
+        <button 
+          onClick={handleLogout} 
+          className="group w-12 h-12 rounded-2xl flex items-center justify-center transition-all duration-300 cursor-pointer text-slate-500 hover:bg-red-500/10 hover:text-red-400 border border-transparent hover:border-red-500/50 mx-auto relative focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500/50"
+          aria-label="Sign Out"
+        >
            <LogOut className="w-5 h-5" />
            <div className="absolute left-16 bg-onyx-900 text-xs font-bold px-3 py-1.5 rounded-lg border border-onyx-700 opacity-0 group-hover:opacity-100 transition-all duration-300 whitespace-nowrap z-50 pointer-events-none shadow-xl translate-x-[-10px] group-hover:translate-x-0 text-white">
               Sign Out
               <div className="absolute left-[-4px] top-1/2 -translate-y-1/2 w-2 h-2 bg-onyx-900 border-l border-b border-onyx-700 rotate-45"></div>
            </div>
-        </div>
+        </button>
 
         <div className="relative flex justify-center">
           <button
             type="button"
             onClick={() => setIsProfileOpen((open) => !open)}
-            className="w-10 h-10 rounded-full bg-onyx-800 border border-onyx-700 hover:border-electric-400/50 transition cursor-pointer flex items-center justify-center shrink-0 overflow-hidden"
+            className="w-10 h-10 rounded-full bg-onyx-800 border border-onyx-700 hover:border-electric-400/50 transition cursor-pointer flex items-center justify-center shrink-0 overflow-hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-electric-400/50"
+            aria-label="Toggle user profile"
+            aria-expanded={isProfileOpen}
           >
             {avatarUrl ? (
               <Image
@@ -140,14 +145,16 @@ export default function Sidebar() {
 
 function NavItem({ icon, label, href, active = false }: { icon: React.ReactNode, label: string, href: string, active?: boolean }) {
   return (
-    <Link href={href}>
+    <Link href={href} aria-label={label}>
       <div className={`
         w-12 h-12 rounded-2xl flex items-center justify-center transition-all duration-300 cursor-pointer group relative mx-auto
         ${active 
           ? 'bg-electric-600/20 text-electric-400 border border-electric-600/50 shadow-glow-cyan' 
           : 'text-slate-500 hover:bg-onyx-800 hover:text-slate-200 border border-transparent hover:border-onyx-700 hover:scale-105 hover:shadow-lg'}
       `}>
-        {icon}
+        <div className="shrink-0" aria-hidden="true">
+          {icon}
+        </div>
         {/* Tooltip */}
         <div className="absolute left-16 bg-onyx-900 text-xs font-bold px-3 py-1.5 rounded-lg border border-onyx-700 opacity-0 group-hover:opacity-100 transition-all duration-300 whitespace-nowrap z-50 pointer-events-none shadow-xl translate-x-[-10px] group-hover:translate-x-0 text-white">
           {label}

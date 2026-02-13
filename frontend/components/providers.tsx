@@ -2,6 +2,9 @@
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useState } from 'react';
+import { ProjectStateProvider } from '@/lib/contexts/ProjectStateContext';
+import { UserProvider } from '@/contexts/UserContext';
+import { Toaster } from 'sonner';
 
 export default function Providers({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(() => new QueryClient({
@@ -15,7 +18,12 @@ export default function Providers({ children }: { children: React.ReactNode }) {
 
   return (
     <QueryClientProvider client={queryClient}>
-      {children}
+      <UserProvider>
+        <ProjectStateProvider>
+          {children}
+          <Toaster position="top-right" richColors closeButton />
+        </ProjectStateProvider>
+      </UserProvider>
     </QueryClientProvider>
   );
 }

@@ -1,126 +1,94 @@
-# Unified Tool Architecture Documentation
+# Unified Tool Architecture (UTA) Documentation
 
 ## 1. Overview
-The Unified Tool Architecture allows independent tools (Notebooks, Data Managers, Experiment Trackers) to operate in isolated environments while communicating through a shared **System Bus**. This ensures modularity, scalability, and robust inter-tool workflows.
+The **The Insighter Enterprise** is built on a modular, project-centric architecture that bridges the gap between local experimentation and production-grade ML operations. The core of this system is the **Unified Tool Architecture (UTA)**, which allows disparate tools (Notebooks, Data Managers, Experiment Trackers) to operate in isolated environments while maintaining seamless communication via a shared **System Bus**.
 
-## 2. Architecture Diagram
+## 2. System Architecture
+
+### 2.1 High-Level Component Relationship
 
 ```mermaid
 graph TD
-    subgraph "Studio Environment (Client-Side)"
-        ToolProvider[ToolContext Provider]
-        
-        subgraph "System Bus"
-            EB[Event Bus / Dispatcher]
-            Validator[Schema Validator (Zod)]
-            ACL[Access Control List]
-            DLQ[Dead Letter Queue]
-        end
-        
-        ToolProvider --> EB
-        EB --> Validator
-        Validator --> ACL
-        ACL -->|Allowed| Deliver[Deliver Message]
-        ACL -->|Denied| LogError[Log Error]
-        Validator -->|Invalid| DLQ
-        
-        subgraph "Tools"
-            T1[Notebook Tool]
-            T2[Data Tool]
-            T3[Experiment Tool]
-        end
-        
-        T1 <-->|useToolCommunication| EB
-        T2 <-->|useToolCommunication| EB
-        T3 <-->|useToolCommunication| EB
+    subgraph "Frontend (Next.js 14+)"
+        UI[User Interface / Studio]
+        UC[UserContext - Auth/Profile]
+        TC[ToolContext - System Bus]
+        TR[Tool Registry]
     end
 
-    subgraph "Observability"
-        Monitor[Tool Monitor UI]
-        Monitor -.-> DLQ
-        Monitor -.-> EB
+    subgraph "Backend (FastAPI)"
+        API[Core API Gateway]
+        Auth[Supabase Auth Integration]
+        Services[Tool Services: ML, Data, Notebook]
+        Storage[S3/Supabase Storage Client]
     end
+
+    subgraph "Persistence & Infrastructure"
+        DB[(PostgreSQL / Supabase)]
+        Blob[(Supabase Object Storage)]
+        MLflow[MLflow Tracking Server]
+    end
+
+    UI <--> TC
+    TC <--> TR
+    UI --> UC
+    UI -- "JWT Auth" --> API
+    API --> Auth
+    API --> Services
+    Services --> DB
+    Services --> Blob
+    Services --> MLflow
 ```
 
-## 3. Core Concepts
+### 2.2 The System Bus (UTA Core)
+The System Bus, implemented via [ToolContext.tsx](file:///d:/The-Insighter-Enterprise/frontend/contexts/ToolContext.tsx), follows a Publish/Subscribe pattern with strict schema validation and access controls.
 
-### 3.1 Linkage Mechanism (The System Bus)
-The core linkage is implemented via `ToolContext` using a Publish/Subscribe pattern.
-- **Broadcast**: One-to-many communication (e.g., `DATA_LOAD` event).
-- **Direct Message**: Point-to-point communication (e.g., triggering a specific action in another tool).
-- **Shared State**: A global key-value store for persistent session data.
+- **Message Dispatcher**: Handles the routing of events between active tools.
+- **Schema Validator**: Uses [Zod](file:///d:/The-Insighter-Enterprise/frontend/lib/tools/schemas.ts) to ensure every message adheres to the expected structure.
+- **Access Control List (ACL)**: Restricts which tools can communicate based on the `allowedSources` definition in the [tools.ts](file:///d:/The-Insighter-Enterprise/frontend/lib/constants/tools.ts) registry.
+- **Dead Letter Queue (DLQ)**: Captures invalid or failed messages for observability and debugging.
 
-### 3.2 Communication Protocols
-All messages must adhere to strict JSON Schemas defined in `lib/tools/schemas.ts`.
+## 3. Technology Stack
 
-**Base Message Structure:**
-```typescript
-interface ToolMessage {
-  id: string;          // UUID
-  sourceToolId: string;// ID of sending tool
-  targetToolId?: string; // Optional: specific recipient
-  type: string;        // Event Type (e.g., 'DATA_LOAD')
-  payload: any;        // Schema-validated content
-  timestamp: number;
-}
-```
+| Layer | Technology | Purpose |
+|-------|------------|---------|
+| **Frontend** | Next.js 14 (App Router) | High-performance, SEO-friendly React framework. |
+| **State Management** | Context API / Zod | Global user state and type-safe tool communication. |
+| **Backend** | FastAPI (Python 3.11+) | Asynchronous, high-performance API services. |
+| **Database** | PostgreSQL (Supabase) | Relational storage with Row-Level Security (RLS). |
+| **Authentication** | Supabase Auth (JWT) | Secure, managed user authentication. |
+| **ML Tracking** | MLflow | Experiment tracking and model versioning. |
+| **Storage** | Supabase Storage (S3) | Large artifact and dataset management. |
+| **Styling** | Tailwind CSS / Framer Motion | Modern, responsive UI with smooth transitions. |
 
-### 3.3 Security & ACL
-Tools define `allowedSources` in their registry definition (`lib/constants/tools.ts`). The System Bus rejects messages from unauthorized sources.
+## 4. Data Flow
 
-## 4. Error Handling & Resilience
-
-- **Schema Validation**: Invalid messages are rejected and moved to the **Dead Letter Queue (DLQ)**.
-- **Retry Logic**: The system attempts to deliver messages 3 times with exponential backoff before failing.
-- **Dead Letter Queue**: A holding area for failed messages, visible in the Tool Monitor for debugging/replay.
+1.  **Authentication**: User logs in via Supabase; the frontend receives a JWT and stores it in [UserContext.tsx](file:///d:/The-Insighter-Enterprise/frontend/contexts/UserContext.tsx).
+2.  **API Requests**: Every request to the FastAPI backend is intercepted by [api.ts](file:///d:/The-Insighter-Enterprise/frontend/lib/api.ts) to attach the `Authorization: Bearer <token>` header.
+3.  **Tool Communication**:
+    -   **Notebook Tool** emits a `DATA_LOAD` event.
+    -   **System Bus** validates the message against `DataLoadSchema`.
+    -   **Data Tool** (if subscribed) receives the event and updates its internal state.
+4.  **Persistence**: Backend services interact with Supabase via the service role for administrative tasks or the user's JWT for RLS-protected data.
 
 ## 5. Integration Guide: Adding a New Tool
 
-### Step 1: Define Tool Metadata
-Add your tool to `lib/constants/tools.ts`:
+### Step 1: Register Metadata
+Add the tool definition to [tools.ts](file:///d:/The-Insighter-Enterprise/frontend/lib/constants/tools.ts).
 ```typescript
 {
-  id: 'my-new-tool',
-  name: 'My Tool',
-  supportedEvents: ['MY_EVENT'],
-  allowedSources: ['notebook', 'system'], // ACL
-  // ...
+  id: 'new-tool-id',
+  name: 'New Tool',
+  environmentType: 'notebook', // data, experiment, labeling, deployment
+  allowedSources: ['system', 'python'], // ACL
 }
 ```
 
-### Step 2: Define Message Schema (Optional but Recommended)
-Add a schema to `lib/tools/schemas.ts`:
-```typescript
-export const MyEventSchema = BaseMessageSchema.extend({
-  type: z.literal('MY_EVENT'),
-  payload: z.object({
-    data: z.string()
-  })
-});
-```
+### Step 2: Define Message Schemas
+Extend the [schemas.ts](file:///d:/The-Insighter-Enterprise/frontend/lib/tools/schemas.ts) if your tool requires new event types.
 
-### Step 3: Use the Hook
-In your component:
-```typescript
-import { useToolCommunication } from '@/hooks/useToolCommunication';
+### Step 3: Implement Frontend Environment
+Create a component in `frontend/components/studio/environments/` and use the `useToolCommunication` hook to interface with the System Bus.
 
-export default function MyToolComponent() {
-  const { emit, on } = useToolCommunication({
-    toolId: 'my-new-tool',
-    subscriptions: ['SOME_OTHER_EVENT'],
-    onMessage: (msg) => console.log('Received:', msg)
-  });
-
-  const doSomething = () => {
-    emit('MY_EVENT', { data: 'Hello World' });
-  };
-  
-  // ...
-}
-```
-
-## 6. Observability
-A built-in **Tool Monitor** (floating widget in Studio) provides real-time visibility into:
-- Message Logs (Info, Warn, Error)
-- Dead Letter Queue contents (with Retry capability)
-- Active Tool Registry status
+---
+*Last Updated: 2026-02-13 | Version: 1.1.0*

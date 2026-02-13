@@ -129,7 +129,7 @@ export default function Home() {
             <Activity className="w-4 h-4 text-electric-400 animate-pulse" />
             <span className="tracking-widest uppercase">System Operational</span>
         </div>
-        <p>© 2026 THE INSIGHTER ENTERPRISE. By Onyx Dev Labs.</p>
+        <p>© 2026 THE INSIGHTER ENTERPRISE. By Nyxus Dev Labs.</p>
       </footer>
     </div>
   );

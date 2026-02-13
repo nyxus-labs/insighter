@@ -1,0 +1,60 @@
+The Insighter Enterprise — Technical Quick Reference
+Version: 2.0.0 | Updated: 2026-02-13
+
+================================================================================
+1. CORE COMMANDS
+================================================================================
+
+FRONTEND (Next.js 14):
+- Install: `npm install`
+- Dev Mode: `npm run dev`
+- Build: `npm run build`
+- Clean Cache: `rm -rf .next` (Linux/Mac) or `rmdir /s /q .next` (Windows)
+
+BACKEND (FastAPI):
+- Install: `pip install -r requirements.txt`
+- Dev Server: `uvicorn app.main:app --reload --port 8000`
+- Prod Server: `gunicorn -w 4 -k uvicorn.workers.UvicornWorker app.main:app`
+
+================================================================================
+2. CRITICAL CONFIGURATION (Environment Variables)
+================================================================================
+
+FRONTEND (.env.local):
+- NEXT_PUBLIC_API_URL: Base URL for backend (default: http://localhost:8000)
+- NEXT_PUBLIC_SUPABASE_URL: Your Supabase project URL
+- NEXT_PUBLIC_SUPABASE_ANON_KEY: Your Supabase anonymous key
+
+BACKEND (.env):
+- SUPABASE_URL: Your Supabase project URL
+- SUPABASE_KEY: Your Supabase service role key (CRITICAL for profile creation)
+- SUPABASE_JWT_SECRET: Your Supabase JWT secret (for local token validation)
+
+================================================================================
+3. SYSTEM ARCHITECTURE SUMMARY
+================================================================================
+
+Pattern: Unified Tool Architecture (UTA)
+Core Bus: frontend/contexts/ToolContext.tsx (Pub/Sub with Zod validation)
+Auth Strategy: Supabase JWT + PostgreSQL RLS Policies
+Storage: Supabase S3-compatible storage for artifacts and datasets
+
+================================================================================
+4. TROUBLESHOOTING CHECKS
+================================================================================
+
+[ ] Backend 500 on Project Creation: Check if profile exists for the user. 
+    Profile is auto-created on first project access via service role.
+[ ] Auth Errors: Ensure SUPABASE_JWT_SECRET matches your Supabase project.
+[ ] Build Failures: Ensure 'date-fns' is installed in the frontend.
+[ ] Slow UI: Verify images use Next/Image and API responses are optimized.
+
+================================================================================
+5. KEY REPOSITORY LINKS
+================================================================================
+- Frontend API Client: frontend/lib/api.ts
+- Tool Registry: frontend/lib/constants/tools.ts
+- Message Schemas: frontend/lib/tools/schemas.ts
+- Backend Main: backend/app/main.py
+- Supabase Schema: backend/database/supa_schema.sql
+================================================================================

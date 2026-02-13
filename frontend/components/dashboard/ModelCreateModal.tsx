@@ -1,7 +1,7 @@
 import { Fragment, useState, useEffect } from 'react';
 import { Dialog, Transition } from '@headlessui/react';
 import { X, Loader2, BrainCircuit } from 'lucide-react';
-import { createClient } from '@/utils/supabase/client';
+import api from '@/lib/api';
 
 interface Project {
   id: string;
@@ -32,26 +32,16 @@ export default function ModelCreateModal({ isOpen, onClose, onSuccess }: ModelCr
   const fetchProjects = async () => {
     setIsFetchingProjects(true);
     try {
-      const supabase = createClient();
-      const { data: { session } } = await supabase.auth.getSession();
-      
-      if (!session) return;
-
-      const res = await fetch('http://localhost:8000/api/projects', {
-        headers: {
-          'Authorization': `Bearer ${session.access_token}`
-        }
-      });
-      
-      if (res.ok) {
-        const data = await res.json();
-        setProjects(data);
-        if (data.length > 0) {
-            setProjectId(data[0].id);
-        }
+      const res = await api.get('/api/projects/');
+      const data = res.data;
+      setProjects(data);
+      if (data.length > 0) {
+        setProjectId(data[0].id);
       }
-    } catch (err) {
-      console.error('Failed to fetch projects', err);
+    } catch (err: any) {
+      if (err.message !== 'Auth session missing!') {
+        console.error('Failed to fetch projects', err);
+      }
     } finally {
       setIsFetchingProjects(false);
     }
@@ -63,34 +53,14 @@ export default function ModelCreateModal({ isOpen, onClose, onSuccess }: ModelCr
     setError('');
 
     try {
-      const supabase = createClient();
-      const { data: { session } } = await supabase.auth.getSession();
-
-      if (!session) {
-        setError('Authentication required');
-        return;
-      }
-
-      const res = await fetch('http://localhost:8000/api/ml/train', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.access_token}`
-        },
-        body: JSON.stringify({
-          model_name: name,
-          algorithm: algorithm,
-          project_id: projectId,
-          hyperparameters: {}
-        }),
+      const res = await api.post('/api/ml/train', {
+        model_name: name,
+        algorithm: algorithm,
+        project_id: projectId,
+        hyperparameters: {}
       });
 
-      if (!res.ok) {
-        const errData = await res.json();
-        throw new Error(errData.detail || 'Failed to create model');
-      }
-
-      const jobData = await res.json();
+      const jobData = res.data;
       
       // Construct a provisional model object to display immediately
       const newModel = {
@@ -147,36 +117,42 @@ export default function ModelCreateModal({ isOpen, onClose, onSuccess }: ModelCr
                     <BrainCircuit className="w-6 h-6 text-electric-400" />
                     Train New Model
                   </Dialog.Title>
-                  <button onClick={onClose} className="text-slate-400 hover:text-white transition-colors">
+                  <button 
+                    onClick={onClose} 
+                    className="text-slate-400 hover:text-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-electric-400/50 rounded"
+                    aria-label="Close modal"
+                  >
                     <X className="w-5 h-5" />
                   </button>
                 </div>
 
                 <form onSubmit={handleSubmit} className="space-y-4">
                   {error && (
-                    <div className="bg-red-500/10 border border-red-500/20 text-red-400 px-4 py-3 rounded-xl text-sm">
+                    <div className="bg-red-500/10 border border-red-500/20 text-red-400 px-4 py-3 rounded-xl text-sm" role="alert">
                       {error}
                     </div>
                   )}
 
                   <div>
-                    <label className="block text-sm font-medium text-slate-300 mb-1">Model Name</label>
+                    <label htmlFor="model-name" className="block text-sm font-medium text-slate-300 mb-1">Model Name</label>
                     <input
+                      id="model-name"
                       type="text"
                       required
                       value={name}
                       onChange={(e) => setName(e.target.value)}
-                      className="w-full bg-onyx-950 border border-onyx-800 rounded-xl px-4 py-2 text-white focus:outline-none focus:border-electric-500 focus:ring-1 focus:ring-electric-500 transition-all placeholder:text-slate-600"
+                      className="w-full bg-onyx-950 border border-onyx-800 rounded-xl px-4 py-2 text-white focus:outline-none focus:border-electric-500 focus:ring-1 focus:ring-electric-500 transition-all placeholder:text-slate-600 focus-visible:ring-2 focus-visible:ring-electric-400/50"
                       placeholder="e.g., Customer Churn Predictor"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-slate-300 mb-1">Algorithm</label>
+                    <label htmlFor="model-algorithm" className="block text-sm font-medium text-slate-300 mb-1">Algorithm</label>
                     <select
+                      id="model-algorithm"
                       value={algorithm}
                       onChange={(e) => setAlgorithm(e.target.value)}
-                      className="w-full bg-onyx-950 border border-onyx-800 rounded-xl px-4 py-2 text-white focus:outline-none focus:border-electric-500 focus:ring-1 focus:ring-electric-500 transition-all"
+                      className="w-full bg-onyx-950 border border-onyx-800 rounded-xl px-4 py-2 text-white focus:outline-none focus:border-electric-500 focus:ring-1 focus:ring-electric-500 transition-all focus-visible:ring-2 focus-visible:ring-electric-400/50"
                     >
                       <option value="xgboost">XGBoost Classifier</option>
                       <option value="random_forest">Random Forest</option>
@@ -186,15 +162,16 @@ export default function ModelCreateModal({ isOpen, onClose, onSuccess }: ModelCr
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-slate-300 mb-1">Project</label>
+                    <label htmlFor="model-project" className="block text-sm font-medium text-slate-300 mb-1">Project</label>
                     {isFetchingProjects ? (
                         <div className="text-sm text-slate-500 animate-pulse">Loading projects...</div>
                     ) : (
                         <select
+                        id="model-project"
                         value={projectId}
                         onChange={(e) => setProjectId(e.target.value)}
                         required
-                        className="w-full bg-onyx-950 border border-onyx-800 rounded-xl px-4 py-2 text-white focus:outline-none focus:border-electric-500 focus:ring-1 focus:ring-electric-500 transition-all"
+                        className="w-full bg-onyx-950 border border-onyx-800 rounded-xl px-4 py-2 text-white focus:outline-none focus:border-electric-500 focus:ring-1 focus:ring-electric-500 transition-all focus-visible:ring-2 focus-visible:ring-electric-400/50"
                         >
                         <option value="" disabled>Select a project</option>
                         {projects.map(p => (
@@ -211,14 +188,14 @@ export default function ModelCreateModal({ isOpen, onClose, onSuccess }: ModelCr
                     <button
                       type="button"
                       onClick={onClose}
-                      className="flex-1 px-4 py-2 rounded-xl border border-onyx-700 text-slate-300 hover:bg-onyx-800 hover:text-white transition-colors font-medium"
+                      className="flex-1 px-4 py-2 rounded-xl border border-onyx-700 text-slate-300 hover:bg-onyx-800 hover:text-white transition-colors font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-onyx-700"
                     >
                       Cancel
                     </button>
                     <button
                       type="submit"
                       disabled={isLoading || !projectId}
-                      className="flex-1 bg-electric-600 hover:bg-electric-500 disabled:opacity-50 disabled:cursor-not-allowed text-white px-4 py-2 rounded-xl font-bold shadow-glow-cyan transition-all flex items-center justify-center gap-2"
+                      className="flex-1 bg-electric-600 hover:bg-electric-500 disabled:opacity-50 disabled:cursor-not-allowed text-white px-4 py-2 rounded-xl font-bold shadow-glow-cyan transition-all flex items-center justify-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-electric-400/50"
                     >
                       {isLoading ? (
                         <>

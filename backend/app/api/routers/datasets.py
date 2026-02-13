@@ -1,7 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
 from pydantic import BaseModel, Field
 from typing import List, Optional
-from app.core.security import User, get_current_user
+from fastapi.security import HTTPAuthorizationCredentials
+from app.core.security import User, get_current_user, security
 from app.db.supabase import SupabaseManager
 
 router = APIRouter()
@@ -17,11 +18,20 @@ class Dataset(BaseModel):
     created_by: Optional[str] = None
 
 @router.get("/", response_model=List[Dataset])
-async def list_datasets(current_user: User = Depends(get_current_user)):
+async def list_datasets(
+    current_user: User = Depends(get_current_user),
+    credentials: HTTPAuthorizationCredentials = Depends(security)
+):
     """List all datasets for current user. Requires authentication."""
-    supabase = SupabaseManager.get_client()
+    from supabase import create_client
+    from app.core.config import settings
+    
+    token = credentials.credentials
+    user_supabase = create_client(settings.SUPABASE_URL, settings.SUPABASE_KEY)
+    user_supabase.postgrest.auth(token)
+    
     try:
-        response = supabase.table('datasets')\
+        response = user_supabase.table('datasets')\
             .select("*")\
             .eq('created_by', current_user.user_id)\
             .order('created_at', desc=True)\
@@ -48,7 +58,8 @@ async def list_datasets(current_user: User = Depends(get_current_user)):
 @router.post("/upload")
 async def upload_dataset(
     file: UploadFile = File(...),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
+    credentials: HTTPAuthorizationCredentials = Depends(security)
 ):
     """Upload a dataset. Requires authentication. Validates file size and type."""
     if not file.filename:
@@ -64,36 +75,13 @@ async def upload_dataset(
             detail=f"File type not allowed. Allowed: {', '.join(allowed_extensions)}"
         )
     
-    # In a real app, we would upload to Supabase Storage here
-    # For now, we just insert a record into the DB
-    supabase = SupabaseManager.get_client()
-    try:
-        # Check if project exists (optional, or assume default project if not provided)
-        # For this MVP, we might create a dataset without a project or assign to a default one
-        # But our schema requires project_id. Let's make it nullable in schema or fetch a default project.
-        # Wait, schema says: project_id UUID REFERENCES public.projects(id) ON DELETE CASCADE
-        # If it's not nullable, we must provide it.
-        # The upload endpoint doesn't accept project_id currently. 
-        # I should update the schema to make project_id nullable for global datasets, or require it in upload.
-        # Let's assume for now we need to modify the schema to allow NULL project_id for "Uncategorized" datasets.
-        
-        # Let's quickly update the schema in my mind: ALTER TABLE public.datasets ALTER COLUMN project_id DROP NOT NULL;
-        # But I can't run migration easily.
-        # I'll modify the code to look for a "Default Project" or create one if missing, OR
-        # better, update the endpoint to accept project_id.
-        # But `UploadFile` is form data.
-        pass
-    except Exception as e:
-        pass
-
-    # Re-thinking: I should update the endpoint to accept project_id as form field
-    # But for now, let's just insert with a dummy project or handle it gracefully.
-    # Actually, I'll update the schema to make project_id nullable is safer for now.
+    from supabase import create_client
+    from app.core.config import settings
     
-    # Let's proceed with just creating the record. If it fails due to constraint, I'll know.
-    # Wait, looking at schema.sql again:
-    # project_id UUID REFERENCES public.projects(id) ON DELETE CASCADE,
-    # It does NOT say "NOT NULL". So it IS nullable by default!
+    # Create a new client with the user's actual JWT to ensure RLS context is passed to Supabase
+    token = credentials.credentials
+    user_supabase = create_client(settings.SUPABASE_URL, settings.SUPABASE_KEY)
+    user_supabase.postgrest.auth(token)
     
     try:
         data = {
@@ -104,7 +92,10 @@ async def upload_dataset(
             "size_bytes": 0, # We'd get this from file.size if available or seek
             "row_count": 0
         }
-        response = supabase.table('datasets').insert(data).execute()
+        
+        print(f"DEBUG: Inserting dataset record for user {current_user.user_id} using JWT")
+        response = user_supabase.table('datasets').insert(data).execute()
+        
         return {
             "status": "uploaded", 
             "id": response.data[0]['id'],

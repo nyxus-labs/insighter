@@ -1,15 +1,17 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { createBrowserClient } from '@supabase/ssr';
-import { Settings, User, Lock, Camera, Save, Loader2, AlertCircle, CheckCircle } from 'lucide-react';
+import { createClient } from '@/utils/supabase/client';
+import { Settings, User, Lock, Camera, Save, Loader2, AlertCircle, CheckCircle, ShieldCheck } from 'lucide-react';
 import { useUser } from '@/contexts/UserContext';
+import { SecretsSettings } from '@/components/dashboard/SecretsSettings';
 
 export default function SettingsPage() {
   const { user: contextUser, refreshUser } = useUser();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
+  const [activeTab, setActiveTab] = useState<'profile' | 'secrets' | 'security'>('profile');
   
   // Form States
   const [firstName, setFirstName] = useState('');
@@ -24,10 +26,7 @@ export default function SettingsPage() {
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   
-  const supabase = createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  );
+  const supabase = createClient();
 
   useEffect(() => {
     if (contextUser) {
@@ -158,8 +157,41 @@ export default function SettingsPage() {
         </div>
         <div>
             <h1 className="text-3xl font-bold text-white">Settings</h1>
-            <p className="text-slate-400 font-mono text-sm">Manage your account and security preferences.</p>
+            <p className="text-slate-400 font-mono text-sm">Manage your account and tool configurations.</p>
         </div>
+      </div>
+
+      <div className="flex gap-2 p-1 bg-onyx-900/50 border border-onyx-800 rounded-xl w-fit mb-8" role="tablist">
+        <button 
+          onClick={() => setActiveTab('profile')}
+          className={`px-4 py-2 rounded-lg text-sm font-bold transition flex items-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-electric-500/50 ${activeTab === 'profile' ? 'bg-electric-600 text-white' : 'text-slate-400 hover:text-white hover:bg-onyx-800'}`}
+          role="tab"
+          aria-selected={activeTab === 'profile'}
+          aria-controls="profile-panel"
+        >
+          <User className="w-4 h-4" />
+          Profile
+        </button>
+        <button 
+          onClick={() => setActiveTab('secrets')}
+          className={`px-4 py-2 rounded-lg text-sm font-bold transition flex items-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-electric-500/50 ${activeTab === 'secrets' ? 'bg-electric-600 text-white' : 'text-slate-400 hover:text-white hover:bg-onyx-800'}`}
+          role="tab"
+          aria-selected={activeTab === 'secrets'}
+          aria-controls="secrets-panel"
+        >
+          <ShieldCheck className="w-4 h-4" />
+          Tool Secrets
+        </button>
+        <button 
+          onClick={() => setActiveTab('security')}
+          className={`px-4 py-2 rounded-lg text-sm font-bold transition flex items-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-electric-500/50 ${activeTab === 'security' ? 'bg-electric-600 text-white' : 'text-slate-400 hover:text-white hover:bg-onyx-800'}`}
+          role="tab"
+          aria-selected={activeTab === 'security'}
+          aria-controls="security-panel"
+        >
+          <Lock className="w-4 h-4" />
+          Security
+        </button>
       </div>
 
       {message && (
@@ -173,162 +205,166 @@ export default function SettingsPage() {
         </div>
       )}
 
-      {/* Profile Section */}
-      <div className="glass-panel p-8 rounded-2xl border border-onyx-800 space-y-8 relative overflow-hidden">
-        <div className="absolute top-0 left-0 w-1 h-full bg-electric-600"></div>
-        <div className="flex items-center gap-3 border-b border-onyx-800 pb-4">
-            <User className="w-5 h-5 text-electric-400" />
-            <h2 className="text-lg font-bold text-white">Profile Information</h2>
+      {activeTab === 'profile' && (
+        <div id="profile-panel" role="tabpanel" aria-labelledby="profile-tab" className="glass-panel p-8 rounded-2xl border border-onyx-800 space-y-8 relative overflow-hidden">
+          <div className="absolute top-0 left-0 w-1 h-full bg-electric-600"></div>
+          <div className="flex items-center gap-3 border-b border-onyx-800 pb-4">
+              <User className="w-5 h-5 text-electric-400" />
+              <h2 className="text-lg font-bold text-white">Profile Information</h2>
+          </div>
+          
+          <form onSubmit={handleUpdateProfile} className="space-y-8">
+              <div className="flex items-start gap-8">
+                  <div className="relative group">
+                      <div className="w-24 h-24 rounded-2xl bg-onyx-900 border-2 border-onyx-700 flex items-center justify-center overflow-hidden">
+                          {avatarUrl ? (
+                              <img src={avatarUrl} alt="Profile" className="w-full h-full object-cover" />
+                          ) : (
+                              <User className="w-10 h-10 text-slate-600" />
+                          )}
+                      </div>
+                      <button 
+                          type="button"
+                          onClick={() => fileInputRef.current?.click()}
+                          className="absolute -bottom-2 -right-2 w-8 h-8 bg-electric-600 rounded-lg flex items-center justify-center text-white shadow-lg hover:bg-electric-500 transition border border-onyx-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-electric-500/50"
+                          aria-label="Change profile photo"
+                      >
+                          <Camera className="w-4 h-4" />
+                      </button>
+                      <input 
+                          type="file" 
+                          ref={fileInputRef} 
+                          onChange={handleAvatarChange} 
+                          className="hidden" 
+                          accept="image/*"
+                          id="avatar-upload"
+                      />
+                  </div>
+                  <div className="flex-1 space-y-1">
+                      <h3 className="text-white font-medium">Profile Photo</h3>
+                      <p className="text-sm text-slate-500">Upload a new avatar. Recommended size: 400x400px.</p>
+                  </div>
+              </div>
+
+              <div className="grid md:grid-cols-2 gap-6">
+                  <div className="space-y-2">
+                      <label htmlFor="first-name" className="block text-xs font-mono text-slate-500 uppercase tracking-widest cursor-pointer">First Name</label>
+                      <input 
+                          id="first-name"
+                          type="text" 
+                          value={firstName}
+                          onChange={(e) => setFirstName(e.target.value)}
+                          className="w-full bg-onyx-900/50 border border-onyx-800 rounded-xl px-4 py-3 text-slate-200 focus:outline-none focus:border-electric-400 transition"
+                          placeholder="John"
+                      />
+                  </div>
+                  <div className="space-y-2">
+                      <label htmlFor="last-name" className="block text-xs font-mono text-slate-500 uppercase tracking-widest cursor-pointer">Last Name</label>
+                      <input 
+                          id="last-name"
+                          type="text" 
+                          value={lastName}
+                          onChange={(e) => setLastName(e.target.value)}
+                          className="w-full bg-onyx-900/50 border border-onyx-800 rounded-xl px-4 py-3 text-slate-200 focus:outline-none focus:border-electric-400 transition"
+                          placeholder="Doe"
+                      />
+                  </div>
+              </div>
+
+              <div className="grid md:grid-cols-2 gap-6">
+                  <div className="space-y-2">
+                      <label htmlFor="username" className="block text-xs font-mono text-slate-500 uppercase tracking-widest cursor-pointer">Username</label>
+                      <input 
+                          id="username"
+                          type="text" 
+                          value={username}
+                          onChange={(e) => setUsername(e.target.value)}
+                          className="w-full bg-onyx-900/50 border border-onyx-800 rounded-xl px-4 py-3 text-slate-200 focus:outline-none focus:border-electric-400 transition"
+                          placeholder="jdoe"
+                      />
+                  </div>
+                  <div className="space-y-2">
+                      <label htmlFor="email" className="block text-xs font-mono text-slate-500 uppercase tracking-widest">Email Address</label>
+                      <input 
+                          id="email"
+                          type="email" 
+                          value={contextUser?.email || ''} 
+                          disabled 
+                          className="w-full bg-onyx-900/30 border border-onyx-800 rounded-xl px-4 py-3 text-slate-500 cursor-not-allowed" 
+                      />
+                      <p className="text-[10px] text-slate-600">Email cannot be changed directly.</p>
+                  </div>
+              </div>
+
+              <div className="flex justify-end">
+                  <button 
+                      type="submit" 
+                      disabled={saving}
+                      className="bg-electric-600 hover:bg-electric-500 text-white px-6 py-3 rounded-xl font-bold flex items-center gap-2 transition shadow-lg shadow-electric-600/20 disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-electric-500/50"
+                  >
+                      {saving ? <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" /> : <Save className="w-4 h-4" aria-hidden="true" />}
+                      <span>{saving ? 'SAVING...' : 'SAVE CHANGES'}</span>
+                  </button>
+              </div>
+          </form>
         </div>
-        
-        <form onSubmit={handleUpdateProfile} className="space-y-8">
-            <div className="flex items-start gap-8">
-                <div className="relative group">
-                    <div className="w-24 h-24 rounded-2xl bg-onyx-900 border-2 border-onyx-700 flex items-center justify-center overflow-hidden">
-                        {avatarUrl ? (
-                            <img src={avatarUrl} alt="Profile" className="w-full h-full object-cover" />
-                        ) : (
-                            <User className="w-10 h-10 text-slate-600" />
-                        )}
-                    </div>
-                    <button 
-                        type="button"
-                        onClick={() => fileInputRef.current?.click()}
-                        className="absolute -bottom-2 -right-2 w-8 h-8 bg-electric-600 rounded-lg flex items-center justify-center text-white shadow-lg hover:bg-electric-500 transition border border-onyx-900"
-                    >
-                        <Camera className="w-4 h-4" />
-                    </button>
-                    <input 
-                        type="file" 
-                        ref={fileInputRef} 
-                        onChange={handleAvatarChange} 
-                        className="hidden" 
-                        accept="image/*"
-                    />
-                </div>
-                <div className="flex-1 space-y-1">
-                    <h3 className="text-white font-medium">Profile Photo</h3>
-                    <p className="text-sm text-slate-500">Upload a new avatar. Recommended size: 400x400px.</p>
-                </div>
-            </div>
+      )}
 
-            <div className="grid md:grid-cols-2 gap-6">
-                <div className="space-y-2">
-                    <label className="block text-xs font-mono text-slate-500 uppercase tracking-widest">First Name</label>
-                    <input 
-                        type="text" 
-                        value={firstName}
-                        onChange={(e) => setFirstName(e.target.value)}
-                        className="w-full bg-onyx-900/50 border border-onyx-800 rounded-xl px-4 py-3 text-slate-200 focus:outline-none focus:border-electric-400 focus:shadow-glow-cyan transition"
-                        placeholder="John"
-                    />
-                </div>
-                <div className="space-y-2">
-                    <label className="block text-xs font-mono text-slate-500 uppercase tracking-widest">Last Name</label>
-                    <input 
-                        type="text" 
-                        value={lastName}
-                        onChange={(e) => setLastName(e.target.value)}
-                        className="w-full bg-onyx-900/50 border border-onyx-800 rounded-xl px-4 py-3 text-slate-200 focus:outline-none focus:border-electric-400 focus:shadow-glow-cyan transition"
-                        placeholder="Doe"
-                    />
-                </div>
-            </div>
-
-            <div className="grid md:grid-cols-2 gap-6">
-                <div className="space-y-2">
-                    <label className="block text-xs font-mono text-slate-500 uppercase tracking-widest">Username</label>
-                    <input 
-                        type="text" 
-                        value={username}
-                        onChange={(e) => setUsername(e.target.value)}
-                        className="w-full bg-onyx-900/50 border border-onyx-800 rounded-xl px-4 py-3 text-slate-200 focus:outline-none focus:border-electric-400 focus:shadow-glow-cyan transition"
-                        placeholder="jdoe"
-                    />
-                </div>
-                <div className="space-y-2">
-                    <label className="block text-xs font-mono text-slate-500 uppercase tracking-widest">Email Address</label>
-                    <input 
-                        type="email" 
-                        value={contextUser?.email || ''} 
-                        disabled 
-                        className="w-full bg-onyx-900/30 border border-onyx-800 rounded-xl px-4 py-3 text-slate-500 cursor-not-allowed" 
-                    />
-                    <p className="text-[10px] text-slate-600">Email cannot be changed directly.</p>
-                </div>
-            </div>
-
-            <div className="flex justify-end">
-                <button 
-                    type="submit" 
-                    disabled={saving}
-                    className="bg-electric-600 hover:bg-electric-500 text-white px-6 py-3 rounded-xl font-bold flex items-center gap-2 transition shadow-glow-cyan disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                    {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-                    SAVE CHANGES
-                </button>
-            </div>
-        </form>
-      </div>
-      
-      {/* Security Section */}
-      <div className="glass-panel p-8 rounded-2xl border border-onyx-800 space-y-8 relative overflow-hidden">
-        <div className="absolute top-0 left-0 w-1 h-full bg-neon-violet"></div>
-        <div className="flex items-center gap-3 border-b border-onyx-800 pb-4">
-            <Lock className="w-5 h-5 text-neon-violet" />
-            <h2 className="text-lg font-bold text-white">Security</h2>
+      {activeTab === 'secrets' && (
+        <div id="secrets-panel" role="tabpanel" aria-labelledby="secrets-tab">
+          <SecretsSettings />
         </div>
+      )}
 
-        <form onSubmit={handleUpdatePassword} className="space-y-6">
-            <div className="grid md:grid-cols-2 gap-6">
-                <div className="space-y-2">
-                    <label className="block text-xs font-mono text-slate-500 uppercase tracking-widest">New Password</label>
-                    <input 
-                        type="password" 
-                        value={newPassword}
-                        onChange={(e) => setNewPassword(e.target.value)}
-                        className="w-full bg-onyx-900/50 border border-onyx-800 rounded-xl px-4 py-3 text-slate-200 focus:outline-none focus:border-neon-violet focus:shadow-glow-violet transition"
-                        placeholder="••••••••"
-                        minLength={6}
-                    />
-                </div>
-                <div className="space-y-2">
-                    <label className="block text-xs font-mono text-slate-500 uppercase tracking-widest">Confirm Password</label>
-                    <input 
-                        type="password" 
-                        value={confirmPassword}
-                        onChange={(e) => setConfirmPassword(e.target.value)}
-                        className="w-full bg-onyx-900/50 border border-onyx-800 rounded-xl px-4 py-3 text-slate-200 focus:outline-none focus:border-neon-violet focus:shadow-glow-violet transition"
-                        placeholder="••••••••"
-                        minLength={6}
-                    />
-                </div>
-            </div>
+      {activeTab === 'security' && (
+        <div id="security-panel" role="tabpanel" aria-labelledby="security-tab" className="glass-panel p-8 rounded-2xl border border-onyx-800 space-y-8 relative overflow-hidden">
+          <div className="absolute top-0 left-0 w-1 h-full bg-electric-600"></div>
+          <div className="flex items-center gap-3 border-b border-onyx-800 pb-4">
+              <Lock className="w-5 h-5 text-electric-400" />
+              <h2 className="text-lg font-bold text-white">Security</h2>
+          </div>
 
-            <div className="flex justify-end">
-                <button 
-                    type="submit" 
-                    disabled={saving || !newPassword}
-                    className="bg-neon-violet hover:bg-violet-600 text-white px-6 py-3 rounded-xl font-bold flex items-center gap-2 transition shadow-glow-violet disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                    {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-                    UPDATE PASSWORD
-                </button>
-            </div>
-        </form>
-      </div>
+          <form onSubmit={handleUpdatePassword} className="space-y-6">
+              <div className="grid md:grid-cols-2 gap-6">
+                  <div className="space-y-2">
+                      <label htmlFor="new-password" className="block text-xs font-mono text-slate-500 uppercase tracking-widest cursor-pointer">New Password</label>
+                      <input 
+                          id="new-password"
+                          type="password" 
+                          value={newPassword}
+                          onChange={(e) => setNewPassword(e.target.value)}
+                          className="w-full bg-onyx-900/50 border border-onyx-800 rounded-xl px-4 py-3 text-slate-200 focus:outline-none focus:border-electric-400 transition"
+                          placeholder="••••••••"
+                          minLength={6}
+                      />
+                  </div>
+                  <div className="space-y-2">
+                      <label htmlFor="confirm-password" className="block text-xs font-mono text-slate-500 uppercase tracking-widest cursor-pointer">Confirm Password</label>
+                      <input 
+                          id="confirm-password"
+                          type="password" 
+                          value={confirmPassword}
+                          onChange={(e) => setConfirmPassword(e.target.value)}
+                          className="w-full bg-onyx-900/50 border border-onyx-800 rounded-xl px-4 py-3 text-slate-200 focus:outline-none focus:border-electric-400 transition"
+                          placeholder="••••••••"
+                          minLength={6}
+                      />
+                  </div>
+              </div>
 
-      {/* API Keys Placeholder */}
-      <div className="glass-panel p-8 rounded-2xl border border-onyx-800 space-y-6 opacity-60 hover:opacity-100 transition duration-300">
-        <div className="flex items-center gap-3 border-b border-onyx-800 pb-4">
-            <Settings className="w-5 h-5 text-slate-400" />
-            <h2 className="text-lg font-bold text-white">API Configuration</h2>
+              <div className="flex justify-end">
+                  <button 
+                      type="submit" 
+                      disabled={saving || !newPassword}
+                      className="bg-electric-600 hover:bg-electric-500 text-white px-6 py-3 rounded-xl font-bold flex items-center gap-2 transition shadow-lg shadow-electric-600/20 disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-electric-500/50"
+                  >
+                      {saving ? <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" /> : <Save className="w-4 h-4" aria-hidden="true" />}
+                      <span>{saving ? 'UPDATING...' : 'UPDATE PASSWORD'}</span>
+                  </button>
+              </div>
+          </form>
         </div>
-        <p className="text-sm text-slate-500">Manage API keys for accessing the platform programmatically.</p>
-        <button disabled className="px-4 py-2 bg-onyx-800 text-slate-500 rounded-lg text-sm font-mono border border-onyx-700 cursor-not-allowed">
-            Manage Keys (Coming Soon)
-        </button>
-      </div>
+      )}
     </div>
   );
 }

@@ -1,15 +1,36 @@
 'use client';
 
 import Link from 'next/link';
-import { ArrowLeft, KeyRound, Mail } from 'lucide-react';
+import { ArrowLeft, KeyRound, Mail, Loader2, AlertCircle } from 'lucide-react';
 import { useState } from 'react';
+import { createClient } from '@/utils/supabase/client';
 
 export default function ForgotPassword() {
+  const [email, setEmail] = useState('');
   const [submitted, setSubmitted] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const supabase = createClient();
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setSubmitted(true);
+    setLoading(true);
+    setError(null);
+
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/reset-password`,
+      });
+
+      if (error) throw error;
+      setSubmitted(true);
+    } catch (err: any) {
+      console.error('Password reset error:', err);
+      setError(err.message || 'Failed to send reset link. Please try again.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -26,23 +47,34 @@ export default function ForgotPassword() {
         <h1 className="text-3xl font-bold text-center text-white mb-2 text-glow-subtle">Recovery Protocol</h1>
         <p className="text-center text-slate-400 mb-8 font-mono text-sm">Initiate password reset sequence.</p>
 
+        {error && (
+          <div className="mb-6 p-4 bg-red-500/10 border border-red-500/50 rounded-xl flex items-center gap-3 text-red-400 text-sm">
+            <AlertCircle className="w-5 h-5" />
+            {error}
+          </div>
+        )}
+
         {!submitted ? (
             <form onSubmit={handleSubmit} className="space-y-6">
                 <div>
                     <label className="block text-xs font-mono text-slate-500 mb-2 uppercase tracking-widest">Email Address</label>
                     <input 
                       type="email" 
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
                       className="w-full bg-onyx-900/50 border border-onyx-700 rounded-xl px-4 py-3 text-slate-200 focus:outline-none focus:border-white/50 transition" 
                       placeholder="admin@insighter.ai" 
                       required
+                      disabled={loading}
                     />
                 </div>
                 
                 <button 
                   type="submit" 
-                  className="w-full bg-slate-700 hover:bg-slate-600 text-white font-bold py-3.5 rounded-xl transition duration-300 flex items-center justify-center"
+                  disabled={loading}
+                  className="w-full bg-slate-700 hover:bg-slate-600 text-white font-bold py-3.5 rounded-xl transition duration-300 flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                    SEND RESET LINK
+                    {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : 'SEND RESET LINK'}
                 </button>
             </form>
         ) : (

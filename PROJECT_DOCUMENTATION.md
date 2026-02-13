@@ -2,134 +2,111 @@
 
 ## 1. Application Overview
 
-**The Insighter Enterprise** is a comprehensive Data Science Platform designed to unify the entire machine learning lifecycle into a single, cohesive workflow. It bridges the gap between data engineering, model development, and deployment, providing a seamless experience for data scientists, ML engineers, and analysts.
+**The Insighter Enterprise** is an all-in-one Data Science & MLOps platform designed to streamline the journey from raw data to production-ready models. It integrates Jupyter-like notebooks, experiment tracking, automated labeling, and one-click deployments into a single, cohesive workspace.
 
-### Value Proposition
-- **Unified Ecosystem:** Integrates disparate tools (Jupyter, MLflow, Docker, Labeling) into one interface.
-- **Project-Centric Workflow:** Organizes all assets (data, code, models) under specific projects for better governance.
-- **Modular Architecture:** Extensible "Tool Registry" allows for easy addition of new capabilities.
-- **Collaboration First:** Built-in sharing, visibility controls, and team management features.
+### Core Value Proposition
+-   **Unified Workflow**: No more switching between browser tabs; data cleaning, model training, and deployment live in one place.
+-   **Project-Centric**: Every asset (dataset, model, notebook, deployment) is tied to a project, ensuring complete auditability and governance.
+-   **Enterprise-Grade Security**: Built on Supabase with Row-Level Security (RLS) and JWT-based authentication.
+-   **Extensible Architecture**: A plug-and-play "Tool Registry" allows teams to add custom environments easily.
 
-### Key Technical Components
-- **Frontend:** Next.js 14 (App Router) with React Server Components, Tailwind CSS, and Framer Motion for a high-performance, responsive UI.
-- **Backend:** FastAPI (Python) for robust API services, integrating directly with ML libraries (PyTorch, Scikit-learn).
-- **Database & Auth:** Supabase (PostgreSQL) for secure user data, authentication, and real-time capabilities.
-- **Storage:** Supabase Storage (S3-compatible) for managing datasets, model artifacts, and logs.
+## 2. Key Features
 
----
+### 📁 Project Management
+-   Create and manage workspaces with granular visibility controls.
+-   Collaborate with team members via shared project access.
+-   Real-time activity tracking and achievements.
 
-## 2. User Journey: Niki (The Data Scientist)
+### 💾 Data Hub
+-   Support for multiple formats: CSV, JSON, Parquet.
+-   Automated schema inference and metadata extraction.
+-   Integration with Supabase Storage for secure, scalable artifact management.
 
-This section details the complete workflow for a new user, "Niki", from her first interaction to performing complex ML tasks.
+### 📝 Interactive Notebooks
+-   Python and R support out of the box.
+-   Real-time execution logs and cell-based interaction.
+-   Direct integration with the platform's System Bus for cross-tool data sharing.
 
-### Phase 1: Registration & Authentication
+### 📊 Model Registry & Experiments
+-   Integrated experiment tracking (MLflow compatible).
+-   Versioned model registry with performance metrics (Accuracy, AUC, etc.).
+-   Support for major frameworks: Scikit-learn, PyTorch, TensorFlow, XGBoost.
 
-**Goal:** Securely access the platform.
+### 🔄 Workflow Orchestration
+-   Visual tool orchestration hub.
+-   Automated pipeline execution and monitoring.
 
-1.  **Registration (`/signup`)**
-    *   **Action:** Niki visits the Signup page.
-    *   **Input Fields:**
-        *   `Email Address` (Valid email format required)
-        *   `Password` (Min 8 chars, mix of letters/numbers)
-        *   `Full Name` (First and Last)
-    *   **Process:**
-        *   Frontend validates inputs.
-        *   Supabase Auth creates a new user record.
-        *   A confirmation email is sent to Niki's inbox.
-    *   **Outcome:** Account created; Niki is redirected to Login with a "Please verify your email" notice.
+### 🏷️ Labeling & Annotation
+-   Built-in image and text labeling tools.
+-   Workflow integration: send labeled data directly to training environments.
 
-2.  **Login (`/login`)**
-    *   **Action:** Niki enters her credentials.
-    *   **Validation:** System checks email/password against Supabase Auth.
-    *   **Session:** On success, a secure JWT session is established. The global `UserContext` is updated with her profile.
-    *   **Recovery:** "Forgot Password?" link triggers a reset email flow if needed.
+### 🚀 One-Click Deployment
+-   Deploy models as REST API endpoints.
+-   Monitoring and health checks for production models.
 
-### Phase 2: Post-Login Onboarding & Dashboard
+## 3. Installation & Setup
 
-**Goal:** Orient Niki and guide her to her first action.
+### Prerequisites
+-   **Node.js**: 18.x or later.
+-   **Python**: 3.11 or later.
+-   **Supabase Account**: Required for database and auth.
+-   **MLflow**: (Optional) For advanced experiment tracking.
 
-1.  **First Impression (`/dashboard`)**
-    *   **Header:** "Welcome back, Niki" (Personalized Greeting).
-    *   **System Status:** A "System Status: OPTIMAL" indicator confirms platform health.
-    *   **Empty State:** Since it's her first time, the Project Grid is empty, displaying a prominent "Create Your First Project" call-to-action.
+### Frontend Setup
+```bash
+cd frontend
+npm install
+# Configure .env with NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY
+npm run dev
+```
 
-2.  **Navigation Layout**
-    *   **Sidebar (Left):** Persistent navigation to core modules:
-        *   📁 **Projects:** Main workspace hub.
-        *   💾 **Data:** Global dataset catalog.
-        *   📝 **Notebooks:** Jupyter-compatible environments.
-        *   📊 **Models:** Model registry and experiment tracking.
-        *   🔄 **Workflow:** Tool orchestration hub.
-        *   ⚙️ **Settings:** Profile and preference management.
+### Backend Setup
+```bash
+cd backend
+python -m venv .venv
+source .venv/bin/activate  # or .venv\Scripts\activate on Windows
+pip install -r requirements.txt
+# Configure .env with SUPABASE_URL, SUPABASE_KEY, and SUPABASE_JWT_SECRET
+python -m uvicorn app.main:app --reload
+```
 
-### Phase 3: Core Functionality & User Actions
+## 4. Configuration Details
 
-Niki proceeds to build a Credit Risk Model. Here is her workflow:
+### Environment Variables (Frontend)
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `NEXT_PUBLIC_API_URL` | Backend API base URL | `http://localhost:8000` |
+| `NEXT_PUBLIC_SUPABASE_URL` | Supabase Project URL | (Required) |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase Anon Key | (Required) |
 
-#### A. Project Creation
-*   **Goal:** Create a workspace for the credit risk analysis.
-*   **Steps:**
-    1.  Click **"+ New Project"** on the Dashboard.
-    2.  **Modal:** Enter Name ("Credit Risk Alpha"), Description, and Visibility (Private/Team).
-    3.  **Submit:** Backend creates the project entry in PostgreSQL.
-*   **Outcome:** Niki is redirected to the **Studio Interface** (`/studio/[id]`) for her new project.
+### Environment Variables (Backend)
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `SUPABASE_URL` | Supabase Project URL | (Required) |
+| `SUPABASE_KEY` | Supabase Service Role Key | (Required) |
+| `SUPABASE_JWT_SECRET` | Supabase JWT Secret | (Required) |
 
-#### B. Data Ingestion
-*   **Goal:** Upload the raw transaction data.
-*   **Steps:**
-    1.  Navigate to **Data** tab (`/dashboard/data`) or Project Data view.
-    2.  Click **"Upload Dataset"**.
-    3.  **Upload Modal:** Drag & drop `transactions.csv`.
-    4.  **Processing:** System validates file type (CSV/Parquet), uploads to Supabase Storage (`uploads/niki_id/transactions.csv`), and creates a metadata record.
-*   **Outcome:** The dataset appears in the catalog with status "Ready" and size statistics.
+## 5. Deployment Procedures
 
-#### C. Exploratory Analysis (Notebooks)
-*   **Goal:** Clean and analyze the data.
-*   **Steps:**
-    1.  In the Project Studio, select **"Notebooks"**.
-    2.  Launch a new Jupyter environment.
-    3.  **Code Editor:** Write Python code to import pandas, load the dataset, and visualize distributions.
-*   **Outcome:** Interactive plots and data insights are generated within the browser.
+### Production Build
+1.  **Frontend**: `npm run build` generates an optimized Next.js production build.
+2.  **Backend**: Use a production-grade server like Gunicorn with Uvicorn workers:
+    ```bash
+    gunicorn -w 4 -k uvicorn.workers.UvicornWorker app.main:app
+    ```
 
-#### D. Model Training & Tracking
-*   **Goal:** Train an XGBoost classifier.
-*   **Steps:**
-    1.  Navigate to **Models** (`/dashboard/models`) or use the **Experiments** tool in Studio.
-    2.  **Configuration:** Define algorithm (XGBoost), hyperparameters, and input dataset.
-    3.  **Execution:** Click "Train". The backend initiates a training job.
-    4.  **Monitoring:** Watch real-time logs and metrics (Accuracy, AUC) in the **Tool Monitor**.
-*   **Outcome:** A new model version (`v1.0`) is registered in the Model Registry with associated artifacts.
+### Infrastructure Requirements
+-   **Database**: PostgreSQL (provided by Supabase).
+-   **Storage**: S3-compatible (provided by Supabase Storage).
+-   **Server**: Minimum 2 vCPUs, 4GB RAM recommended for standard workloads.
 
-#### E. Deployment
-*   **Goal:** Serve the model for predictions.
-*   **Steps:**
-    1.  Select the trained model in the **Deployment** tool.
-    2.  Click **"Deploy"**.
-    3.  **Backend:** Containers are spun up (simulated or via Docker).
-    4.  **Result:** An API Endpoint URL is generated (`/api/v1/predict/credit-risk-alpha`).
+## 6. Troubleshooting Guide
 
----
-
-## 3. Architecture Summary
-
-### Frontend Application (`/frontend`)
-*   **Next.js App Router:** Handles routing, server-side rendering, and layout composition.
-*   **Tool Registry (`lib/constants/tools.ts`):** The central configuration file defining all available tools (ID, Name, Icon, Environment Type).
-*   **Studio Layout:** A dynamic shell that loads specific "Tool Environments" (React Components) based on the user's selection.
-*   **State Management:**
-    *   `UserContext`: Global user profile and auth state.
-    *   `ToolContext`: Pub/Sub system for inter-tool communication (e.g., Notebook sending data to Experiment Tracker).
-
-### Backend Services (`/backend`)
-*   **FastAPI Main Application:** Serves REST endpoints for the frontend.
-*   **Routers (`app/api/routers/`):** dedicated endpoints for `auth`, `projects`, `datasets`, `ml`, etc.
-*   **Security:** JWT-based authentication via Supabase. RLS (Row Level Security) policies enforced at the database level.
-*   **Tool Services:** specialized logic for handling tool-specific actions (e.g., `app/tools/ml.py` for training logic).
-
-### Data Layer
-*   **PostgreSQL (Supabase):** Relational data for Users, Projects, Datasets, and Model Metadata.
-*   **Object Storage (Supabase Storage):** Flat file storage for large datasets and binary model artifacts.
+### Common Issues
+-   **500 Internal Server Error (Projects)**: Ensure the user's profile exists in the `profiles` table. The backend attempts automatic creation, but check Supabase logs for RLS policy violations.
+-   **AuthApiError (Email Not Confirmed)**: Confirm that email confirmation is either completed by the user or disabled in Supabase Auth settings.
+-   **Slow Navigation**: Usually caused by heavy image assets or unoptimized API calls. Ensure `Next/Image` is used and API endpoints are paginated.
+-   **Module Not Found (date-fns)**: Run `npm install date-fns` in the frontend directory and clear the `.next` cache.
 
 ---
-
-*This document serves as the single source of truth for The Insighter Enterprise functionality.*
+*Single Source of Truth for The Insighter Enterprise | Version: 2.0.0*

@@ -1,8 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
 from typing import List, Optional
-from app.core.security import User, get_current_user
+from fastapi.security import HTTPAuthorizationCredentials
+from app.core.security import User, get_current_user, security
 from app.db.supabase import SupabaseManager
+from app.services.model_key_service import model_key_service, APIKeyCreate, APIKeyResponse
 
 router = APIRouter()
 
@@ -23,13 +25,25 @@ class Model(BaseModel):
     created_at: str
 
 @router.post("/train")
-async def train_model(config: ModelTrainConfig, current_user: User = Depends(get_current_user)):
+async def train_model(
+    config: ModelTrainConfig, 
+    current_user: User = Depends(get_current_user),
+    credentials: HTTPAuthorizationCredentials = Depends(security)
+):
     """Start a model training job. Requires authentication."""
     if not config.model_name or len(config.model_name.strip()) == 0:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Model name is required")
     
-    supabase = SupabaseManager.get_client()
+    from supabase import create_client
+    from app.core.config import settings
+    
+    token = credentials.credentials
+    # Use service key but restrict with user JWT via postgrest.auth
+    user_supabase = create_client(settings.SUPABASE_URL, settings.SUPABASE_KEY)
+    user_supabase.postgrest.auth(token)
+    
     try:
+        print(f"DEBUG: Starting model training for user {current_user.user_id} using JWT context")
         # Create a new model entry in 'staging' status
         data = {
             "name": config.model_name,
@@ -40,7 +54,7 @@ async def train_model(config: ModelTrainConfig, current_user: User = Depends(get
             "created_by": current_user.user_id,
             "metrics": {"accuracy": 0.0} # Placeholder
         }
-        response = supabase.table('models').insert(data).execute()
+        response = user_supabase.table('models').insert(data).execute()
         
         return {
             "job_id": response.data[0]['id'], 
@@ -48,14 +62,26 @@ async def train_model(config: ModelTrainConfig, current_user: User = Depends(get
             "owner_id": current_user.user_id
         }
     except Exception as e:
+        print(f"Error starting model training: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/models", response_model=List[Model])
-async def list_models(current_user: User = Depends(get_current_user)):
+async def list_models(
+    current_user: User = Depends(get_current_user),
+    credentials: HTTPAuthorizationCredentials = Depends(security)
+):
     """List all models for current user. Requires authentication."""
-    supabase = SupabaseManager.get_client()
+    from supabase import create_client
+    from app.core.config import settings
+    
+    token = credentials.credentials
+    # Use service key but restrict with user JWT via postgrest.auth
+    user_supabase = create_client(settings.SUPABASE_URL, settings.SUPABASE_KEY)
+    user_supabase.postgrest.auth(token)
+    
     try:
-        response = supabase.table('models')\
+        print(f"DEBUG: Listing models for user {current_user.user_id} using JWT context")
+        response = user_supabase.table('models')\
             .select("*")\
             .eq('created_by', current_user.user_id)\
             .order('created_at', desc=True)\
@@ -74,5 +100,38 @@ async def list_models(current_user: User = Depends(get_current_user)):
                 "created_at": item['created_at']
             })
         return models
+    except Exception as e:
+        print(f"Error listing models: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/keys", response_model=APIKeyResponse)
+async def create_model_api_key(config: APIKeyCreate, current_user: User = Depends(get_current_user)):
+    """Generate a new secure API key for an Insighter model."""
+    try:
+        # Verify ownership of the model
+        supabase = SupabaseManager.get_client()
+        model = supabase.table('models').select('id').eq('id', config.model_id).eq('created_by', current_user.user_id).execute()
+        
+        if not model.data:
+            raise HTTPException(status_code=404, detail="Model not found or access denied")
+            
+        key_response = await model_key_service.create_key(current_user.user_id, config)
+        return key_response
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Key generation failed: {str(e)}")
+
+@router.get("/keys/{model_id}")
+async def list_model_keys(model_id: str, current_user: User = Depends(get_current_user)):
+    """List all API keys for a specific model."""
+    supabase = SupabaseManager.get_client()
+    try:
+        response = supabase.table('model_api_keys')\
+            .select("id, name, scopes, created_at, expires_at, last_used_at, is_active")\
+            .eq('model_id', model_id)\
+            .eq('user_id', current_user.user_id)\
+            .execute()
+        return response.data
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

@@ -1,30 +1,31 @@
 import { createServerClient, type CookieOptions } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
+import appConfig from '@/lib/config';
 
-export default async function proxy(req: NextRequest) {
+export async function middleware(request: NextRequest) {
   let response = NextResponse.next({
     request: {
-      headers: req.headers,
+      headers: request.headers,
     },
   });
 
   const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    appConfig.supabase.url,
+    appConfig.supabase.anonKey,
     {
       cookies: {
         get(name: string) {
-          return req.cookies.get(name)?.value;
+          return request.cookies.get(name)?.value;
         },
         set(name: string, value: string, options: CookieOptions) {
-          req.cookies.set({
+          request.cookies.set({
             name,
             value,
             ...options,
           });
           response = NextResponse.next({
             request: {
-              headers: req.headers,
+              headers: request.headers,
             },
           });
           response.cookies.set({
@@ -34,14 +35,14 @@ export default async function proxy(req: NextRequest) {
           });
         },
         remove(name: string, options: CookieOptions) {
-          req.cookies.set({
+          request.cookies.set({
             name,
             value: '',
             ...options,
           });
           response = NextResponse.next({
             request: {
-              headers: req.headers,
+              headers: request.headers,
             },
           });
           response.cookies.set({
@@ -54,26 +55,33 @@ export default async function proxy(req: NextRequest) {
     }
   );
 
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
+  // refreshing the auth token
+  let user = null;
+  try {
+    const { data } = await supabase.auth.getUser();
+    user = data.user;
+  } catch (e) {
+    console.error('Middleware Auth Error:', e);
+  }
 
   // Protected routes
-  const protectedPaths = ['/dashboard', '/studio'];
-  const isProtected = protectedPaths.some(path => req.nextUrl.pathname.startsWith(path));
+  const protectedPaths = ['/dashboard', '/studio', '/workspaces'];
+  const isProtected = protectedPaths.some(path => request.nextUrl.pathname.startsWith(path));
 
-  if (isProtected && !session) {
-    const redirectUrl = req.nextUrl.clone();
+  if (isProtected && !user) {
+    const redirectUrl = request.nextUrl.clone();
     redirectUrl.pathname = '/login';
+    // Preserve the current URL to redirect back after login
+    redirectUrl.searchParams.set('redirectedFrom', request.nextUrl.pathname);
     return NextResponse.redirect(redirectUrl);
   }
 
   // Redirect to dashboard if logged in and trying to access auth pages
   const authPaths = ['/login', '/signup'];
-  const isAuthPage = authPaths.some(path => req.nextUrl.pathname.startsWith(path));
+  const isAuthPage = authPaths.some(path => request.nextUrl.pathname.startsWith(path));
 
-  if (isAuthPage && session) {
-    const redirectUrl = req.nextUrl.clone();
+  if (isAuthPage && user) {
+    const redirectUrl = request.nextUrl.clone();
     redirectUrl.pathname = '/dashboard';
     return NextResponse.redirect(redirectUrl);
   }

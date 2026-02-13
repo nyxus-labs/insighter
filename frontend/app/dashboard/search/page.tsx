@@ -3,7 +3,7 @@
 import { useSearchParams } from 'next/navigation';
 import { Search, Folder, Database, Code, BrainCircuit, Calendar, Loader2 } from 'lucide-react';
 import { Suspense, useState, useEffect } from 'react';
-import { createClient } from '@/utils/supabase/client';
+import api from '@/lib/api';
 import Link from 'next/link';
 
 interface SearchResultItem {
@@ -34,23 +34,12 @@ function SearchResults() {
       setHasSearched(true);
       
       try {
-        const supabase = createClient();
-        const { data: { session } } = await supabase.auth.getSession();
-        
-        if (!session) return;
-
-        const res = await fetch(`http://localhost:8000/api/search/?q=${encodeURIComponent(query)}`, {
-          headers: {
-            'Authorization': `Bearer ${session.access_token}`
-          }
-        });
-
-        if (res.ok) {
-          const data = await res.json();
-          setResults(data.results || []);
+        const res = await api.get(`/api/search/?q=${encodeURIComponent(query)}`);
+        setResults(res.data.results || []);
+      } catch (err: any) {
+        if (err.message !== 'Auth session missing!') {
+          console.error('Failed to fetch search results', err);
         }
-      } catch (error) {
-        console.error("Search failed:", error);
       } finally {
         setLoading(false);
       }

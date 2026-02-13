@@ -13,8 +13,23 @@ import {
   RotateCcw
 } from 'lucide-react';
 import { TOOLS, CATEGORIES, Tool } from '@/lib/constants/tools';
+import { ROLES, RoleConfig } from '@/lib/constants/roles';
 
 import { createClient } from '@/utils/supabase/client';
+import api from '@/lib/api';
+import { 
+  Plus, 
+  ArrowRight, 
+  Trophy, 
+  Target, 
+  ChevronRight,
+  Activity,
+  Box,
+  Layout,
+  Zap,
+  CheckCircle2
+} from 'lucide-react';
+import { toast } from 'sonner';
 
 // --- Types ---
 
@@ -57,12 +72,14 @@ export default function WorkflowPage({
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>
 }) {
   const { id } = use(params);
-  const { category } = use(searchParams);
+  const { category, role: roleId } = use(searchParams);
   
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>(
     typeof category === 'string' ? decodeURIComponent(category) : 'All'
   );
+  const [currentRole, setCurrentRole] = useState<RoleConfig | null>(null);
+  const [completedTasks, setCompletedTasks] = useState<string[]>([]);
   const [showHistory, setShowHistory] = useState(false);
   const [showSharedData, setShowSharedData] = useState(false);
   const [history, setHistory] = useState<HistoryItem[]>(MOCK_HISTORY);
@@ -70,39 +87,47 @@ export default function WorkflowPage({
   const [isLoading, setIsLoading] = useState(true);
   const supabase = createClient();
 
-  // Load project type if not provided via URL
+  // Load project type and role if not provided via URL
   useEffect(() => {
     const fetchProject = async () => {
-      if (category) return; // Skip if category provided in URL
-
       try {
-        const session = await supabase.auth.getSession();
-        const token = session.data.session?.access_token;
-        if (!token) return;
-
-        const res = await fetch(`http://localhost:8000/api/projects/${id}`, {
-            headers: { 'Authorization': `Bearer ${token}` }
-        });
-        if (res.ok) {
-            const project = await res.json();
-            if (project.type) {
-                setSelectedCategory(project.type);
-            }
+        const res = await api.get(`/api/projects/${id}`);
+        const project = res.data;
+        
+        // Determine role
+        const activeRoleId = (roleId as string) || project.type;
+        const role = ROLES.find(r => r.id === activeRoleId);
+        if (role) {
+          setCurrentRole(role);
+          if (!category) setSelectedCategory('All'); // Default to All for roles
+        } else if (project.type && !category) {
+          setSelectedCategory(project.type);
         }
       } catch (e) {
         console.error("Failed to load project", e);
       }
     };
     fetchProject();
-  }, [id, category]);
+  }, [id, category, roleId]);
 
-  // Simulate loading
-  useEffect(() => {
-    const timer = setTimeout(() => setIsLoading(false), 800);
-    return () => clearTimeout(timer);
-  }, []);
+  const toggleTask = (task: string) => {
+    setCompletedTasks(prev => 
+      prev.includes(task) ? prev.filter(t => t !== task) : [...prev, task]
+    );
+    if (!completedTasks.includes(task)) {
+      toast.success('Task completed!');
+    }
+  };
 
-  const filteredTools = TOOLS.filter(tool => {
+  const progress = currentRole 
+    ? Math.round((completedTasks.length / currentRole.suggestedTasks.length) * 100)
+    : 0;
+
+  const roleTools = currentRole 
+    ? TOOLS.filter(t => currentRole.tools.includes(t.id))
+    : [];
+
+  const filteredTools = (currentRole ? roleTools : TOOLS).filter(tool => {
     const matchesSearch = tool.name.toLowerCase().includes(searchQuery.toLowerCase()) || tool.description.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesCategory = selectedCategory === 'All' || tool.category === selectedCategory;
     return matchesSearch && matchesCategory;
@@ -117,6 +142,12 @@ export default function WorkflowPage({
       const newData = { id: `sd${Date.now()}`, name: 'synced_data.csv', format: 'CSV', source: 'External', size: '2 MB', lastUpdated: 'Just now' } as SharedDataItem;
       setSharedData([newData, ...sharedData]);
   };
+
+  // Simulate loading
+  useEffect(() => {
+    const timer = setTimeout(() => setIsLoading(false), 800);
+    return () => clearTimeout(timer);
+  }, []);
 
   if (isLoading) {
       return (
@@ -137,11 +168,12 @@ export default function WorkflowPage({
       {/* Header */}
       <header className="h-16 border-b border-onyx-800 bg-onyx-900/50 backdrop-blur-md flex items-center justify-between px-6 sticky top-0 z-40">
         <div className="flex items-center gap-4">
-          <Link href={`/studio/${id}`} className="p-2 hover:bg-onyx-800 rounded-lg transition text-slate-500 hover:text-white">
+          <Link href={`/dashboard`} className="p-2 hover:bg-onyx-800 rounded-lg transition text-slate-500 hover:text-white">
             <ArrowLeft className="w-5 h-5" />
           </Link>
           <h1 className="text-xl font-bold text-white flex items-center gap-2">
-            Workflow Hub <span className="px-2 py-0.5 rounded-full bg-electric-600/10 text-electric-400 text-xs border border-electric-600/20">Beta</span>
+            {currentRole ? `${currentRole.title} Workspace` : 'Workflow Hub'} 
+            <span className="px-2 py-0.5 rounded-full bg-electric-600/10 text-electric-400 text-xs border border-electric-600/20">Active</span>
           </h1>
         </div>
         <div className="flex items-center gap-3">
@@ -166,6 +198,59 @@ export default function WorkflowPage({
           <main className="flex-1 overflow-y-auto p-8 relative z-10 transition-all duration-300">
             <div className="max-w-7xl mx-auto">
                 
+                {/* Role Progress & Context */}
+                {currentRole && (
+                  <div className="mb-10 grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <div className="lg:col-span-2 glass-panel p-6 rounded-2xl border border-onyx-800 bg-gradient-to-br from-onyx-900 to-onyx-950">
+                      <div className="flex justify-between items-start mb-6">
+                        <div>
+                          <h2 className="text-2xl font-bold text-white mb-1">Mission Progress</h2>
+                          <p className="text-slate-500 text-sm font-mono uppercase tracking-wider">{currentRole.title} Protocol</p>
+                        </div>
+                        <div className="text-right">
+                          <span className="text-3xl font-black text-electric-400">{progress}%</span>
+                          <p className="text-xs text-slate-500 font-mono">COMPLETED</p>
+                        </div>
+                      </div>
+                      <div className="h-3 w-full bg-onyx-800 rounded-full overflow-hidden mb-8">
+                        <div 
+                          className="h-full bg-gradient-to-r from-electric-600 to-neon-violet transition-all duration-1000 ease-out"
+                          style={{ width: `${progress}%` }}
+                        ></div>
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {currentRole.suggestedTasks.map((task, i) => (
+                          <div 
+                            key={i}
+                            onClick={() => toggleTask(task)}
+                            className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-all ${completedTasks.includes(task) ? 'bg-neon-emerald/10 border-neon-emerald/30 text-neon-emerald' : 'bg-onyx-900/50 border-onyx-800 text-slate-400 hover:border-slate-600'}`}
+                          >
+                            {completedTasks.includes(task) ? <CheckCircle2 className="w-5 h-5" /> : <div className="w-5 h-5 rounded-full border-2 border-current opacity-30" />}
+                            <span className="text-sm font-medium">{task}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="glass-panel p-6 rounded-2xl border border-onyx-800 flex flex-col justify-between">
+                      <div>
+                        <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+                          <Zap className="w-5 h-5 text-yellow-400" />
+                          Role Objectives
+                        </h3>
+                        <p className="text-slate-400 text-sm leading-relaxed">
+                          Your workspace is currently optimized for <strong>{currentRole.title}</strong> workflows. 
+                          All tools below are interconnected through the Insighter Data Plane.
+                        </p>
+                      </div>
+                      <div className="mt-6 p-4 bg-electric-600/10 border border-electric-600/20 rounded-xl">
+                        <p className="text-xs text-electric-400 font-mono mb-2 uppercase tracking-widest">System Tip</p>
+                        <p className="text-xs text-slate-400">Data generated in notebooks is automatically available to visualization tools via the Shared Data bus.</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 {/* Search & Filter */}
                 <div className="mb-10 space-y-6">
                     <div className="flex flex-col md:flex-row gap-4 justify-between items-start md:items-center">

@@ -47,7 +47,7 @@ export default function Contact() {
                    </div>
                    <div>
                       <h3 className="text-white font-medium">Headquarters</h3>
-                      <p className="text-sm text-slate-500">101 Cyber Avenue, Tech District<br/>Neo Tokyo, NT 2077</p>
+                      <p className="text-sm text-slate-500">Virtual <br/>Nairobi, Kenya</p>
                    </div>
                 </div>
 
@@ -57,7 +57,7 @@ export default function Contact() {
                    </div>
                    <div>
                       <h3 className="text-white font-medium">Call Us</h3>
-                      <p className="text-sm text-slate-500">+1 (800) 555-0199</p>
+                      <p className="text-sm text-slate-500">+254 116 130160</p>
                    </div>
                 </div>
              </div>

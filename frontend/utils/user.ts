@@ -1,11 +1,13 @@
 
 export interface UserProfile {
+  id?: string;
   firstName?: string | null;
   lastName?: string | null;
   username?: string | null;
   email?: string | null;
   avatarUrl?: string | null;
   phone?: string | null;
+  role?: string | null;
 }
 
 export function getFullName(user: UserProfile): string {

@@ -6,6 +6,7 @@ from pydantic import BaseModel
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from app.core.config import settings
+from app.services.model_key_service import model_key_service
 
 # Password hashing context
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -52,18 +53,50 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -
     return encoded_jwt
 
 async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)) -> User:
-    """Dependency to extract and verify JWT token from request."""
+    """Dependency to extract and verify JWT token or Model API Key from request."""
     token = credentials.credentials
+    
+    # 1. Check if it's an Insighter Model API Key
+    if token.startswith("ins_model_"):
+        is_valid, key_data = await model_key_service.validate_key(token)
+        if is_valid and key_data:
+            # Return a special service user for API key access
+            return User(
+                user_id=key_data['user_id'],
+                username=f"api_key_{key_data['key_prefix']}",
+                role="api_client",
+                email=None
+            )
+
     credential_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials",
         headers={"WWW-Authenticate": "Bearer"},
     )
     
-    # Try local validation first (if SECRET_KEY matches Supabase JWT Secret)
-    # But since we don't have SUPABASE_JWT_SECRET reliably in dev without user input,
-    # we'll default to using Supabase Auth API to verify the token.
-    # This is slower but guarantees correctness with just the Anon Key.
+    # Try local validation if SECRET_KEY matches Supabase JWT Secret
+    if settings.SUPABASE_JWT_SECRET:
+        try:
+            payload = jwt.decode(
+                token, 
+                settings.SUPABASE_JWT_SECRET, 
+                algorithms=[settings.ALGORITHM],
+                audience="authenticated"
+            )
+            user_id = payload.get("sub")
+            email = payload.get("email")
+            role = payload.get("role", "authenticated")
+            
+            if user_id:
+                return User(
+                    user_id=user_id,
+                    username=email.split('@')[0] if email else user_id,
+                    role=role,
+                    email=email
+                )
+        except JWTError as jwt_err:
+            print(f"Local JWT validation failed: {jwt_err}")
+            # Fall through to Supabase API check
     
     from app.db.supabase import SupabaseManager
     supabase = SupabaseManager.get_client()
@@ -74,6 +107,7 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
 
     try:
         # Verify token with Supabase Auth
+        # Note: supabase-py 2.x get_user(token) works
         user_response = supabase.auth.get_user(token)
         if not user_response or not user_response.user:
              raise credential_exception

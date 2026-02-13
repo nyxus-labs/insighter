@@ -2,28 +2,56 @@
 
 import Link from 'next/link';
 import Image from 'next/image';
-import { ArrowLeft, Zap, AlertCircle } from 'lucide-react';
+import { ArrowLeft, Zap, AlertCircle, Loader2, CheckCircle2 } from 'lucide-react';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { createBrowserClient } from '@supabase/ssr';
+import { createClient } from '@/utils/supabase/client';
 
 export default function Login() {
   const router = useRouter();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [resending, setResending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
 
-  const supabase = createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  );
+  const supabase = createClient();
+
+  const handleResendConfirmation = async () => {
+    if (!email) {
+      setError('Please enter your email address first.');
+      return;
+    }
+    
+    setResending(true);
+    setError(null);
+    setSuccess(null);
+    
+    try {
+      const { error } = await supabase.auth.resend({
+        type: 'signup',
+        email: email,
+        options: {
+          emailRedirectTo: `${window.location.origin}/auth/callback`,
+        }
+      });
+      
+      if (error) throw error;
+      setSuccess('Confirmation email has been resent. Please check your inbox.');
+    } catch (err: any) {
+      setError(err.message || 'Failed to resend confirmation email.');
+    } finally {
+      setResending(false);
+    }
+  };
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     console.log('Login attempt started');
     setLoading(true);
     setError(null);
+    setSuccess(null);
 
     try {
       const { data, error } = await supabase.auth.signInWithPassword({
@@ -33,7 +61,13 @@ export default function Login() {
 
       if (error) {
         console.error('Login error:', error);
-        throw error;
+        if (error.message.includes('Email not confirmed')) {
+          setError('Your email has not been confirmed yet. Please check your inbox for the confirmation link or contact an administrator.');
+        } else {
+          setError(error.message || 'An error occurred during authentication');
+        }
+        setLoading(false);
+        return;
       }
 
       console.log('Login successful', data);
@@ -66,9 +100,28 @@ export default function Login() {
         <p className="text-center text-slate-400 mb-8 font-mono text-sm">Enter your credentials to access the system.</p>
         
         {error && (
-          <div className="mb-6 p-4 bg-red-500/10 border border-red-500/50 rounded-xl flex items-center gap-3 text-red-400 text-sm">
-            <AlertCircle className="w-5 h-5" />
-            {error}
+          <div className="mb-6 p-4 bg-red-500/10 border border-red-500/50 rounded-xl flex flex-col gap-2 text-red-400 text-sm">
+            <div className="flex items-center gap-3">
+              <AlertCircle className="w-5 h-5 flex-shrink-0" />
+              <span>{error}</span>
+            </div>
+            {error.includes('Email not confirmed') && (
+              <button 
+                onClick={handleResendConfirmation}
+                disabled={resending}
+                className="mt-2 text-xs font-bold text-red-300 hover:text-white transition flex items-center gap-2 underline underline-offset-4 disabled:opacity-50"
+              >
+                {resending ? <Loader2 className="w-3 h-3 animate-spin" /> : null}
+                RESEND CONFIRMATION EMAIL
+              </button>
+            )}
+          </div>
+        )}
+
+        {success && (
+          <div className="mb-6 p-4 bg-emerald-500/10 border border-emerald-500/50 rounded-xl flex items-center gap-3 text-emerald-400 text-sm">
+            <CheckCircle2 className="w-5 h-5 flex-shrink-0" />
+            <span>{success}</span>
           </div>
         )}
 

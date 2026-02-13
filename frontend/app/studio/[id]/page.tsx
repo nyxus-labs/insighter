@@ -2,7 +2,16 @@
 
 import { useState, useEffect, use } from 'react';
 import Link from 'next/link';
-import { getDeployments, getLabelingTasks, createDeployment, createLabelingTask } from '@/lib/api';
+import { 
+  getDeployments, 
+  getLabelingTasks, 
+  createDeployment, 
+  createLabelingTask,
+  getModels,
+  getExperiments,
+  getDatasets
+} from '@/lib/api';
+import api from '@/lib/api';
 import { 
   Activity, 
   Database, 
@@ -19,33 +28,76 @@ import {
   Rocket,
   Tag,
   X,
-  Workflow
+  Workflow,
+  Loader2,
+  ChevronRight,
+  Info,
+  Clock,
+  CheckCircle2,
+  XCircle
 } from 'lucide-react';
 import CodeEditor from '@/components/ui/CodeEditor';
 import { CyberChart } from '@/components/ui/Charts';
-
-// Mock Data
-const PERFORMANCE_DATA = [
-  { name: 'E1', value: 0.65 },
-  { name: 'E2', value: 0.72 },
-  { name: 'E3', value: 0.78 },
-  { name: 'E4', value: 0.85 },
-  { name: 'E5', value: 0.82 },
-  { name: 'E6', value: 0.89 },
-  { name: 'E7', value: 0.92 },
-];
+import { formatDistanceToNow } from 'date-fns';
 
 export default function Studio({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const [activeTab, setActiveTab] = useState<'notebook' | 'data' | 'experiments' | 'labeling' | 'deployment' | 'settings'>('notebook');
   const [isProcessing, setIsProcessing] = useState(false);
+  const [project, setProject] = useState<any>(null);
   const [deployments, setDeployments] = useState<any[]>([]);
   const [labelingTasks, setLabelingTasks] = useState<any[]>([]);
+  const [models, setModels] = useState<any[]>([]);
+  const [experiments, setExperiments] = useState<any[]>([]);
+  const [datasets, setDatasets] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
   const [showDeployModal, setShowDeployModal] = useState(false);
   const [showLabelingModal, setShowLabelingModal] = useState(false);
-  const [newDeployment, setNewDeployment] = useState({ model_id: 'churn-v1', cpu: '1', memory: '2Gi' });
+  const [newDeployment, setNewDeployment] = useState({ model_id: '', cpu: '1', memory: '2Gi' });
   const [newLabelingTask, setNewLabelingTask] = useState({ name: '', type: 'text' });
+
+  useEffect(() => {
+    const fetchProject = async () => {
+      try {
+        const res = await api.get(`/api/projects/${id}`);
+        setProject(res.data);
+      } catch (e) {
+        console.error('Failed to fetch project:', e);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchProject();
+  }, [id]);
+
+  useEffect(() => {
+    if (activeTab === 'deployment') {
+      getDeployments().then(setDeployments);
+    } else if (activeTab === 'labeling') {
+      getLabelingTasks().then(setLabelingTasks);
+    } else if (activeTab === 'experiments') {
+      getExperiments(id).then(setExperiments);
+      getModels().then(setModels);
+    } else if (activeTab === 'data') {
+      getDatasets(id).then(setDatasets);
+    }
+  }, [activeTab, id]);
+
+  const performanceData = experiments.length > 0 
+    ? experiments.slice(-10).map((exp, idx) => ({
+        name: `R${idx + 1}`,
+        value: exp.metrics?.accuracy || exp.metrics?.acc || 0
+      }))
+    : [
+        { name: 'E1', value: 0.65 },
+        { name: 'E2', value: 0.72 },
+        { name: 'E3', value: 0.78 },
+        { name: 'E4', value: 0.85 },
+        { name: 'E5', value: 0.82 },
+        { name: 'E6', value: 0.89 },
+        { name: 'E7', value: 0.92 },
+      ];
 
   const handleDeploy = async () => {
     setIsProcessing(true);
@@ -77,17 +129,14 @@ export default function Studio({ params }: { params: Promise<{ id: string }> }) 
     }
   };
 
-  useEffect(() => {
-    if (activeTab === 'deployment') {
-        getDeployments().then(setDeployments);
-    } else if (activeTab === 'labeling') {
-        getLabelingTasks().then(setLabelingTasks);
-    }
-  }, [activeTab]);
-
   const runExperiment = () => {
     setIsProcessing(true);
     setTimeout(() => setIsProcessing(false), 2000);
+  };
+
+  const handleShare = () => {
+    navigator.clipboard.writeText(window.location.href);
+    alert('Project link copied to clipboard!');
   };
 
   return (
@@ -102,17 +151,20 @@ export default function Studio({ params }: { params: Promise<{ id: string }> }) 
           </Link>
           <div className="h-6 w-px bg-onyx-700"></div>
           <div>
-            <h1 className="text-white font-bold text-sm">Churn Prediction Model</h1>
+            <h1 className="text-white font-bold text-sm">{isLoading ? 'Loading...' : project?.name || 'Project Studio'}</h1>
             <div className="flex items-center gap-2 text-xs text-slate-500">
               <span className="flex items-center gap-1"><GitBranch className="w-3 h-3" /> main</span>
               <span>•</span>
-              <span className="text-emerald-400 flex items-center gap-1"><span className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse"></span> Online</span>
+              <span className="text-emerald-400 flex items-center gap-1"><span className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse"></span> {isLoading ? 'Initializing...' : 'Online'}</span>
             </div>
           </div>
         </div>
 
         <div className="flex items-center gap-4">
-          <button className="flex items-center gap-2 px-4 py-2 bg-onyx-800 hover:bg-onyx-700 rounded-full text-xs font-medium transition border border-onyx-700 text-slate-300">
+          <button 
+            onClick={handleShare}
+            className="flex items-center gap-2 px-4 py-2 bg-onyx-800 hover:bg-onyx-700 rounded-full text-xs font-medium transition border border-onyx-700 text-slate-300"
+          >
             <Share2 className="w-3 h-3" /> Share
           </button>
           <button onClick={runExperiment} className={`flex items-center gap-2 px-6 py-2 bg-electric-600 hover:bg-electric-500 text-white rounded-full text-xs font-bold transition shadow-glow-cyan ${isProcessing ? 'opacity-75 cursor-wait' : ''}`}>
@@ -243,35 +295,29 @@ export default function Studio({ params }: { params: Promise<{ id: string }> }) 
                  </div>
                  
                  <div className="grid md:grid-cols-2 gap-6">
-                    <div className="glass-panel p-6 rounded-2xl border border-onyx-800 hover:border-neon-violet/50 transition group cursor-pointer">
-                       <div className="flex items-start justify-between mb-4">
-                          <div className="p-3 bg-neon-violet/10 rounded-xl text-neon-violet group-hover:scale-110 transition">
-                             <Database className="w-6 h-6" />
-                          </div>
-                          <span className="text-xs font-mono text-slate-500">1.2 MB</span>
-                       </div>
-                       <h3 className="text-lg font-bold text-white mb-1">customer_churn.csv</h3>
-                       <p className="text-sm text-slate-400 mb-4">Raw customer data with 24 features.</p>
-                       <div className="flex gap-2">
-                          <span className="px-2 py-1 bg-onyx-900 rounded text-xs text-slate-500 border border-onyx-800">CSV</span>
-                          <span className="px-2 py-1 bg-onyx-900 rounded text-xs text-slate-500 border border-onyx-800">5k rows</span>
-                       </div>
-                    </div>
-
-                    <div className="glass-panel p-6 rounded-2xl border border-onyx-800 hover:border-electric-600/50 transition group cursor-pointer">
-                       <div className="flex items-start justify-between mb-4">
-                          <div className="p-3 bg-electric-600/10 rounded-xl text-electric-400 group-hover:scale-110 transition">
-                             <Box className="w-6 h-6" />
-                          </div>
-                          <span className="text-xs font-mono text-slate-500">45 MB</span>
-                       </div>
-                       <h3 className="text-lg font-bold text-white mb-1">transactions_2023.parquet</h3>
-                       <p className="text-sm text-slate-400 mb-4">Cleaned transaction history.</p>
-                       <div className="flex gap-2">
-                          <span className="px-2 py-1 bg-onyx-900 rounded text-xs text-slate-500 border border-onyx-800">Parquet</span>
-                          <span className="px-2 py-1 bg-onyx-900 rounded text-xs text-slate-500 border border-onyx-800">120k rows</span>
-                       </div>
-                    </div>
+                    {datasets.length === 0 ? (
+                      <div className="col-span-2 glass-panel p-12 rounded-2xl border border-onyx-800 text-center flex flex-col items-center justify-center">
+                        <Database className="w-12 h-12 text-slate-700 mb-4" />
+                        <p className="text-slate-500 font-bold uppercase tracking-widest text-xs">No datasets found for this project</p>
+                      </div>
+                    ) : (
+                      datasets.map((dataset) => (
+                        <div key={dataset.id} className="glass-panel p-6 rounded-2xl border border-onyx-800 hover:border-neon-violet/50 transition group cursor-pointer">
+                           <div className="flex items-start justify-between mb-4">
+                              <div className="p-3 bg-neon-violet/10 rounded-xl text-neon-violet group-hover:scale-110 transition">
+                                 <Database className="w-6 h-6" />
+                              </div>
+                              <span className="text-xs font-mono text-slate-500">{dataset.size || '0 MB'}</span>
+                           </div>
+                           <h3 className="text-lg font-bold text-white mb-1">{dataset.name}</h3>
+                           <p className="text-sm text-slate-400 mb-4">{dataset.description || 'No description available.'}</p>
+                           <div className="flex gap-2">
+                              <span className="px-2 py-1 bg-onyx-900 rounded text-xs text-slate-500 border border-onyx-800">{dataset.format || 'UNKNOWN'}</span>
+                              <span className="px-2 py-1 bg-onyx-900 rounded text-xs text-slate-500 border border-onyx-800">{dataset.row_count || 0} rows</span>
+                           </div>
+                        </div>
+                      ))
+                    )}
                  </div>
                </div>
             )}
@@ -289,23 +335,27 @@ export default function Studio({ params }: { params: Promise<{ id: string }> }) 
                   <div className="grid lg:grid-cols-3 gap-6">
                      <div className="lg:col-span-2 glass-panel p-6 rounded-2xl border border-onyx-800">
                         <h3 className="text-sm font-bold text-slate-400 mb-6 uppercase tracking-wider">Accuracy over Epochs</h3>
-                        <CyberChart data={PERFORMANCE_DATA} type="area" height={300} />
+                        <CyberChart data={performanceData} type="area" height={300} />
                      </div>
                      
                      <div className="glass-panel p-6 rounded-2xl border border-onyx-800 flex flex-col gap-4">
                         <h3 className="text-sm font-bold text-slate-400 mb-2 uppercase tracking-wider">Top Models</h3>
                         
-                        {[1, 2, 3].map((i) => (
-                           <div key={i} className="p-4 bg-onyx-900/50 rounded-xl border border-onyx-800 hover:border-electric-600/30 transition">
-                              <div className="flex justify-between items-center mb-2">
-                                 <span className="text-white font-bold text-sm">XGBoost-V{i}</span>
-                                 <span className={`text-xs ${i === 3 ? 'text-electric-400' : 'text-slate-500'}`}>{90 + i}%</span>
+                        {models.length === 0 ? (
+                           <div className="p-8 text-center text-slate-600 text-[10px] font-bold uppercase tracking-widest">No models trained yet</div>
+                        ) : (
+                           models.slice(0, 3).map((model) => (
+                              <div key={model.id} className="p-4 bg-onyx-900/50 rounded-xl border border-onyx-800 hover:border-electric-600/30 transition">
+                                 <div className="flex justify-between items-center mb-2">
+                                    <span className="text-white font-bold text-sm">{model.name}</span>
+                                    <span className={`text-xs ${model.metrics?.accuracy > 0.9 ? 'text-electric-400' : 'text-slate-500'}`}>{(model.metrics?.accuracy * 100).toFixed(1)}%</span>
+                                 </div>
+                                 <div className="w-full bg-onyx-800 h-1.5 rounded-full overflow-hidden">
+                                    <div className="bg-gradient-to-r from-electric-600 to-neon-blue h-full rounded-full" style={{ width: `${model.metrics?.accuracy * 100}%` }}></div>
+                                 </div>
                               </div>
-                              <div className="w-full bg-onyx-800 h-1.5 rounded-full overflow-hidden">
-                                 <div className="bg-gradient-to-r from-electric-600 to-neon-blue h-full rounded-full" style={{ width: `${90 + i}%` }}></div>
-                              </div>
-                           </div>
-                        ))}
+                           ))
+                        )}
                      </div>
                   </div>
 
@@ -322,20 +372,28 @@ export default function Studio({ params }: { params: Promise<{ id: string }> }) 
                            </tr>
                         </thead>
                         <tbody className="text-slate-300 divide-y divide-onyx-800">
-                           <tr className="hover:bg-onyx-900/50 transition">
-                              <td className="py-3 px-4 font-mono text-electric-400">#8f3a21</td>
-                              <td className="py-3 px-4"><span className="px-2 py-0.5 bg-emerald-500/10 text-emerald-400 rounded-full text-xs">Completed</span></td>
-                              <td className="py-3 px-4">0.923</td>
-                              <td className="py-3 px-4">12m 30s</td>
-                              <td className="py-3 px-4 text-slate-500">2 min ago</td>
-                           </tr>
-                           <tr className="hover:bg-onyx-900/50 transition">
-                              <td className="py-3 px-4 font-mono text-slate-500">#7b2c19</td>
-                              <td className="py-3 px-4"><span className="px-2 py-0.5 bg-red-500/10 text-red-400 rounded-full text-xs">Failed</span></td>
-                              <td className="py-3 px-4">-</td>
-                              <td className="py-3 px-4">45s</td>
-                              <td className="py-3 px-4 text-slate-500">1 hour ago</td>
-                           </tr>
+                           {experiments.length === 0 ? (
+                              <tr>
+                                 <td colSpan={5} className="py-8 text-center text-slate-600 text-[10px] font-bold uppercase tracking-widest">No recent runs found</td>
+                              </tr>
+                           ) : (
+                              experiments.map((run) => (
+                                 <tr key={run.run_id} className="hover:bg-onyx-900/50 transition">
+                                    <td className="py-3 px-4 font-mono text-electric-400">#{run.run_id.substring(0, 6)}</td>
+                                    <td className="py-3 px-4">
+                                       <span className={`px-2 py-0.5 rounded-full text-xs ${
+                                          run.status === 'FINISHED' ? 'bg-emerald-500/10 text-emerald-400' : 
+                                          run.status === 'FAILED' ? 'bg-red-500/10 text-red-400' : 'bg-onyx-800 text-slate-500'
+                                       }`}>
+                                          {run.status}
+                                       </span>
+                                    </td>
+                                    <td className="py-3 px-4">{run.metrics?.accuracy?.toFixed(3) || run.metrics?.acc?.toFixed(3) || '-'}</td>
+                                    <td className="py-3 px-4">{run.duration || '-'}</td>
+                                    <td className="py-3 px-4 text-slate-500">{run.start_time ? new Date(run.start_time).toLocaleDateString() : '-'}</td>
+                                 </tr>
+                              ))
+                           )}
                         </tbody>
                      </table>
                   </div>

@@ -5,7 +5,7 @@ import Image from 'next/image';
 import { ArrowLeft, Zap, UserPlus, AlertCircle } from 'lucide-react';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { createBrowserClient } from '@supabase/ssr';
+import { createClient } from '@/utils/supabase/client';
 
 export default function Signup() {
   const router = useRouter();
@@ -14,10 +14,7 @@ export default function Signup() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const supabase = createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  );
+  const supabase = createClient();
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -28,12 +25,23 @@ export default function Signup() {
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
+        options: {
+          emailRedirectTo: `${window.location.origin}/auth/callback`,
+          data: {
+            full_name: email.split('@')[0],
+          }
+        }
       });
 
       if (error) throw error;
 
-      // Successful signup
-      router.push('/dashboard');
+      if (data.user && !data.session) {
+        // Email confirmation is required
+        setError('success:Please check your email to confirm your account before logging in.');
+      } else {
+        // Successful signup and already signed in (autofirm enabled)
+        router.push('/dashboard');
+      }
     } catch (err: any) {
       setError(err.message || 'An error occurred during registration');
     } finally {
@@ -62,9 +70,13 @@ export default function Signup() {
         <p className="text-center text-slate-400 mb-8 font-mono text-sm">Join the elite data intelligence network.</p>
         
         {error && (
-          <div className="mb-6 p-4 bg-red-500/10 border border-red-500/50 rounded-xl flex items-center gap-3 text-red-400 text-sm">
+          <div className={`mb-6 p-4 rounded-xl flex items-center gap-3 text-sm ${
+            error.startsWith('success:') 
+              ? 'bg-emerald-500/10 border border-emerald-500/50 text-emerald-400' 
+              : 'bg-red-500/10 border border-red-500/50 text-red-400'
+          }`}>
             <AlertCircle className="w-5 h-5" />
-            {error}
+            {error.startsWith('success:') ? error.replace('success:', '') : error}
           </div>
         )}
 
