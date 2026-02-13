@@ -3,9 +3,7 @@ from typing import List, Optional
 from pydantic import BaseModel, Field
 from fastapi.security import HTTPAuthorizationCredentials
 from app.core.security import User, get_current_user, security
-
-from supabase import create_client
-from app.core.config import settings
+from app.db.supabase import SupabaseManager
 
 router = APIRouter()
 
@@ -26,8 +24,10 @@ async def list_tasks(
 ):
     """List all labeling tasks for current user. Requires authentication."""
     token = credentials.credentials
-    user_supabase = create_client(settings.SUPABASE_URL, settings.SUPABASE_KEY)
-    user_supabase.postgrest.auth(token)
+    user_supabase = SupabaseManager.get_authenticated_client(token)
+    
+    if not user_supabase:
+        raise HTTPException(status_code=500, detail="Supabase client not available")
     
     try:
         response = user_supabase.table('labeling_projects')\
@@ -48,7 +48,8 @@ async def list_tasks(
             })
         return tasks
     except Exception as e:
-        print(f"Error listing labeling tasks: {e}")
+        from app.core.logging import logger
+        logger.error(f"Error listing labeling tasks: {e}")
         # If table doesn't exist yet or other error, return empty list
         return []
 
@@ -68,8 +69,10 @@ async def create_task(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid task type. Must be: image, text, or audio")
     
     token = credentials.credentials
-    user_supabase = create_client(settings.SUPABASE_URL, settings.SUPABASE_KEY)
-    user_supabase.postgrest.auth(token)
+    user_supabase = SupabaseManager.get_authenticated_client(token)
+    
+    if not user_supabase:
+        raise HTTPException(status_code=500, detail="Supabase client not available")
     
     new_project = {
         "name": name,
@@ -98,6 +101,7 @@ async def create_task(
             "project_id": item.get('project_id')
         }
     except Exception as e:
-        print(f"Error creating labeling project: {e}")
+        from app.core.logging import logger
+        logger.error(f"Error creating labeling task: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 

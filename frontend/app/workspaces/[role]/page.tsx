@@ -71,13 +71,19 @@ export default function WorkspaceLandingPage() {
     const INITIAL_BACKOFF = 1000; // 1 second
 
     try {
+      // Input Validation before API call
+      if (!currentRole.defaultProjectName || currentRole.defaultProjectName.trim() === "") {
+        throw new Error('Project name is invalid in role configuration');
+      }
+
+      if (!currentRole.id) {
+        throw new Error('Role ID is missing');
+      }
+
       // Only show main loading state on first attempt to avoid UI flickering during retries
       if (retryCount === 0) setIsLoading(true);
       
-      // Request payload validation: ensure required configuration exists
-      if (!currentRole.defaultProjectName) {
-        throw new Error('Project name is missing in role configuration');
-      }
+      console.log(`[WorkspaceInit] Starting mission for role: ${currentRole.id}, Attempt: ${retryCount + 1}`);
 
       // API call to create new project
       const res = await api.post('/api/projects/', {
@@ -89,42 +95,56 @@ export default function WorkspaceLandingPage() {
 
       if (res.status === 200 || res.status === 201) {
         const newProject = res.data;
+        console.log(`[WorkspaceInit] Mission created successfully: ${newProject.id}`);
         toast.success(`Mission Started: ${currentRole.defaultProjectName}`);
         // Navigate to the newly created project workflow
         router.push(`/studio/${newProject.id}/workflow?role=${currentRole.id}`);
       }
     } catch (e: any) {
-      console.error(`Failed to start mission (attempt ${retryCount + 1}):`, e);
+      console.error(`[WorkspaceInit] Failed to start mission (attempt ${retryCount + 1}):`, e);
       
       const isNetworkError = !e.response;
       const isServerError = e.response?.status >= 500;
-      // Retry if it's a transient error (network or 5xx server error) and we haven't hit max retries
+      const isAuthError = e.response?.status === 401;
+      const isValidationError = e.response?.status === 400;
+
+      // Log detailed error context
+      if (isNetworkError) {
+        console.error('[WorkspaceInit] CRITICAL: Network connection failure. Check API status, CORS, or BASE_URL.');
+      } else if (isAuthError) {
+        console.error('[WorkspaceInit] AUTH ERROR: Session expired or invalid.');
+      } else if (isServerError) {
+        console.error('[WorkspaceInit] SERVER ERROR:', e.response?.data?.detail || 'Internal server error');
+      }
+
+      // Retry Logic: Only retry on transient errors (Network or 5xx)
       const shouldRetry = (isNetworkError || isServerError) && retryCount < MAX_RETRIES;
 
       if (shouldRetry) {
         const backoffTime = INITIAL_BACKOFF * Math.pow(2, retryCount);
-        // Inform user about the retry attempt
-        toast.loading(`Initialization failed. Retrying in ${backoffTime/1000}s... (Attempt ${retryCount + 1}/${MAX_RETRIES})`, {
+        toast.loading(`Connection issue. Retrying in ${backoffTime/1000}s... (Attempt ${retryCount + 1}/${MAX_RETRIES})`, {
           id: 'init-retry',
           duration: backoffTime
         });
         
-        // Wait for backoff period then retry
         setTimeout(() => {
           handleStartMission(retryCount + 1);
         }, backoffTime);
         return;
       }
 
-      // Final error handling when retries are exhausted or error is non-retryable
+      // Fallback/Final Error Handling
       toast.dismiss('init-retry');
       let errorMessage = 'Failed to initialize workspace project';
       
-      // Use specific error message from server if available
       if (e.response?.data?.detail) {
         errorMessage = e.response.data.detail;
       } else if (isNetworkError) {
-        errorMessage = 'Network connection lost. Please check your internet and try again.';
+        errorMessage = 'Could not reach the server. Please check your connection.';
+      } else if (isAuthError) {
+        errorMessage = 'Your session has expired. Please log in again.';
+      } else if (isValidationError) {
+        errorMessage = 'Invalid project configuration. Please contact support.';
       }
 
       toast.error(errorMessage, {
@@ -136,8 +156,8 @@ export default function WorkspaceLandingPage() {
         }
       });
     } finally {
-      // Stop loading if we're not planning to retry
-      if (retryCount === 0 || !isLoading) {
+      // Only stop loading if we're not retrying
+      if (retryCount >= MAX_RETRIES || !isLoading) {
         setIsLoading(false);
       }
     }

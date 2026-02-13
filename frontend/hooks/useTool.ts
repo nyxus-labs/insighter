@@ -47,7 +47,7 @@ export function useTool({ tool, projectId, enableRealtime = false }: UseToolOpti
     );
 
     ws.onopen = () => {
-      console.log(`[WS] Connected to ${tool.environmentType} tool`);
+      // Connection established
     };
 
     ws.onmessage = (event) => {
@@ -55,17 +55,16 @@ export function useTool({ tool, projectId, enableRealtime = false }: UseToolOpti
         const payload = JSON.parse(event.data);
         setState(prev => ({ ...prev, realtimeData: payload }));
       } catch (e) {
-        console.error('[WS] Error parsing message:', e);
+        // Error parsing message
       }
     };
 
     ws.onerror = (error) => {
-      console.error('[WS] Error:', error);
+      // WebSocket error occurred
     };
 
     ws.onclose = () => {
-      console.log(`[WS] Disconnected from ${tool.environmentType} tool`);
-      // Optional: Reconnect logic here
+      // Connection closed
     };
 
     wsRef.current = ws;

@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 from jose import JWTError, jwt
 from passlib.context import CryptContext
@@ -7,6 +7,9 @@ from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from app.core.config import settings
 from app.services.model_key_service import model_key_service
+import logging
+
+logger = logging.getLogger("insighter")
 
 # Password hashing context
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -44,9 +47,9 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -
     """Create a JWT access token."""
     to_encode = data.copy()
     if expires_delta:
-        expire = datetime.utcnow() + expires_delta
+        expire = datetime.now(timezone.utc) + expires_delta
     else:
-        expire = datetime.utcnow() + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+        expire = datetime.now(timezone.utc) + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
     
     to_encode.update({"exp": expire})
     encoded_jwt = jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
@@ -95,14 +98,14 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
                     email=email
                 )
         except JWTError as jwt_err:
-            print(f"Local JWT validation failed: {jwt_err}")
+            logger.debug(f"Local JWT validation failed: {jwt_err}")
             # Fall through to Supabase API check
     
     from app.db.supabase import SupabaseManager
     supabase = SupabaseManager.get_client()
     
     if not supabase:
-        print("Error: Supabase client not initialized")
+        logger.error("Supabase client not initialized")
         raise credential_exception
 
     try:
@@ -129,7 +132,7 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
         )
             
     except Exception as e:
-        print(f"Auth error: {e}")
+        logger.error(f"Auth error: {e}")
         raise credential_exception
 
 def require_role(required_role: str):

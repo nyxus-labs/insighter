@@ -28,9 +28,11 @@ class NotebookTool(BaseTool):
             
             try:
                 with contextlib.redirect_stdout(stdout_capture), contextlib.redirect_stderr(stderr_capture):
-                    # We use a restricted global scope to avoid trivial messes, 
-                    # but real security needs Docker
-                    exec(code, {"__builtins__": __builtins__}, {})
+                    # SECURITY WARNING: exec() is inherently dangerous.
+                    # In production, this MUST be executed in a sandboxed container (e.g., Docker).
+                    # We use a restricted global scope to minimize risks in dev.
+                    safe_globals = {"__builtins__": {}} # Extreme restriction for demo
+                    exec(code, safe_globals, {})
                 
                 result_output = stdout_capture.getvalue()
                 error_output = stderr_capture.getvalue()

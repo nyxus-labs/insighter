@@ -34,16 +34,15 @@ async def train_model(
     if not config.model_name or len(config.model_name.strip()) == 0:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Model name is required")
     
-    from supabase import create_client
-    from app.core.config import settings
-    
     token = credentials.credentials
-    # Use service key but restrict with user JWT via postgrest.auth
-    user_supabase = create_client(settings.SUPABASE_URL, settings.SUPABASE_KEY)
-    user_supabase.postgrest.auth(token)
+    user_supabase = SupabaseManager.get_authenticated_client(token)
+    
+    if not user_supabase:
+        raise HTTPException(status_code=500, detail="Supabase client not available")
     
     try:
-        print(f"DEBUG: Starting model training for user {current_user.user_id} using JWT context")
+        from app.core.logging import logger
+        logger.debug(f"Starting model training for user {current_user.user_id} using JWT context")
         # Create a new model entry in 'staging' status
         data = {
             "name": config.model_name,
@@ -62,7 +61,7 @@ async def train_model(
             "owner_id": current_user.user_id
         }
     except Exception as e:
-        print(f"Error starting model training: {e}")
+        logger.error(f"Error starting model training: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/models", response_model=List[Model])
@@ -71,16 +70,15 @@ async def list_models(
     credentials: HTTPAuthorizationCredentials = Depends(security)
 ):
     """List all models for current user. Requires authentication."""
-    from supabase import create_client
-    from app.core.config import settings
-    
     token = credentials.credentials
-    # Use service key but restrict with user JWT via postgrest.auth
-    user_supabase = create_client(settings.SUPABASE_URL, settings.SUPABASE_KEY)
-    user_supabase.postgrest.auth(token)
+    user_supabase = SupabaseManager.get_authenticated_client(token)
+    
+    if not user_supabase:
+        raise HTTPException(status_code=500, detail="Supabase client not available")
     
     try:
-        print(f"DEBUG: Listing models for user {current_user.user_id} using JWT context")
+        from app.core.logging import logger
+        logger.debug(f"Listing models for user {current_user.user_id} using JWT context")
         response = user_supabase.table('models')\
             .select("*")\
             .eq('created_by', current_user.user_id)\
@@ -101,7 +99,7 @@ async def list_models(
             })
         return models
     except Exception as e:
-        print(f"Error listing models: {e}")
+        logger.error(f"Error listing models: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/keys", response_model=APIKeyResponse)

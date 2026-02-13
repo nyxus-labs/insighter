@@ -23,12 +23,11 @@ async def list_datasets(
     credentials: HTTPAuthorizationCredentials = Depends(security)
 ):
     """List all datasets for current user. Requires authentication."""
-    from supabase import create_client
-    from app.core.config import settings
-    
     token = credentials.credentials
-    user_supabase = create_client(settings.SUPABASE_URL, settings.SUPABASE_KEY)
-    user_supabase.postgrest.auth(token)
+    user_supabase = SupabaseManager.get_authenticated_client(token)
+    
+    if not user_supabase:
+        raise HTTPException(status_code=500, detail="Supabase client not available")
     
     try:
         response = user_supabase.table('datasets')\
@@ -52,7 +51,8 @@ async def list_datasets(
             })
         return datasets
     except Exception as e:
-        print(f"Error uploading dataset: {e}")
+        from app.core.logging import logger
+        logger.error(f"Error listing datasets: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/upload")
@@ -75,13 +75,12 @@ async def upload_dataset(
             detail=f"File type not allowed. Allowed: {', '.join(allowed_extensions)}"
         )
     
-    from supabase import create_client
-    from app.core.config import settings
-    
     # Create a new client with the user's actual JWT to ensure RLS context is passed to Supabase
     token = credentials.credentials
-    user_supabase = create_client(settings.SUPABASE_URL, settings.SUPABASE_KEY)
-    user_supabase.postgrest.auth(token)
+    user_supabase = SupabaseManager.get_authenticated_client(token)
+    
+    if not user_supabase:
+        raise HTTPException(status_code=500, detail="Supabase client not available")
     
     try:
         data = {
@@ -93,7 +92,8 @@ async def upload_dataset(
             "row_count": 0
         }
         
-        print(f"DEBUG: Inserting dataset record for user {current_user.user_id} using JWT")
+        from app.core.logging import logger
+        logger.debug(f"Inserting dataset record for user {current_user.user_id} using JWT")
         response = user_supabase.table('datasets').insert(data).execute()
         
         return {
@@ -103,5 +103,5 @@ async def upload_dataset(
             "owner_id": current_user.user_id
         }
     except Exception as e:
-        print(f"Error uploading dataset: {e}")
+        logger.error(f"Error uploading dataset: {e}")
         raise HTTPException(status_code=500, detail=str(e))
