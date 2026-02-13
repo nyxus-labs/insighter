@@ -2,7 +2,7 @@ import { createServerClient, type CookieOptions } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
 import appConfig from '@/lib/config';
 
-export async function proxy(request: NextRequest) {
+export default async function proxy(request: NextRequest) {
   let response = NextResponse.next({
     request: {
       headers: request.headers,
@@ -61,7 +61,7 @@ export async function proxy(request: NextRequest) {
     const { data } = await supabase.auth.getUser();
     user = data.user;
   } catch (e) {
-    console.error('Middleware Auth Error:', e);
+    // Auth errors in proxy are handled by redirecting to login if path is protected
   }
 
   // Protected routes
