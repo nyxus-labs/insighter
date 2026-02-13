@@ -44,6 +44,16 @@ This report summarizes the comprehensive analysis and improvements made to The I
   - **Location**: `backend/app/api/routers/projects.py`.
   - **Risk**: Low (Crashes). Could cause `AttributeError` if response is null.
   - **Resolution**: Added checks for `response.data` and safe return values.
+- **Issue**: Dashboard Timeout Error.
+  - **Location**: Frontend Dashboard route.
+  - **Risk**: Medium (UX). `TimeoutError` observed during dashboard data fetching.
+  - **Resolution**: Added troubleshooting note to increase proxy timeout.
+
+### 2.5 Deprecations & Warnings
+- **Issue**: Deprecated `middleware.ts`.
+  - **Resolution**: Migrated to `proxy.ts` as required by Next.js 16.
+- **Issue**: Missing `metadataBase`.
+  - **Resolution**: Identified need for `NEXT_PUBLIC_METADATA_BASE` environment variable to resolve Open Graph images.
 
 ## 3. Pending Issues / Recommendations
 

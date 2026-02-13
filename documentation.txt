@@ -5,7 +5,7 @@ Version: 2.0.0 | Updated: 2026-02-13
 1. CORE COMMANDS
 ================================================================================
 
-FRONTEND (Next.js 14):
+FRONTEND (Next.js 16 - Turbopack):
 - Install: `npm install`
 - Dev Mode: `npm run dev`
 - Build: `npm run build`
@@ -24,6 +24,7 @@ FRONTEND (.env.local):
 - NEXT_PUBLIC_API_URL: Base URL for backend (default: http://localhost:8000)
 - NEXT_PUBLIC_SUPABASE_URL: Your Supabase project URL
 - NEXT_PUBLIC_SUPABASE_ANON_KEY: Your Supabase anonymous key
+- NEXT_PUBLIC_METADATA_BASE: Base URL for metadata (default: http://localhost:3000)
 
 BACKEND (.env):
 - SUPABASE_URL: Your Supabase project URL
@@ -36,6 +37,7 @@ BACKEND (.env):
 
 Pattern: Unified Tool Architecture (UTA)
 Core Bus: frontend/contexts/ToolContext.tsx (Pub/Sub with Zod validation)
+Proxy: frontend/proxy.ts (Replaces deprecated middleware.ts)
 Auth Strategy: Supabase JWT + PostgreSQL RLS Policies
 Storage: Supabase S3-compatible storage for artifacts and datasets
 
@@ -48,6 +50,8 @@ Storage: Supabase S3-compatible storage for artifacts and datasets
 [ ] Auth Errors: Ensure SUPABASE_JWT_SECRET matches your Supabase project.
 [ ] Build Failures: Ensure 'date-fns' is installed in the frontend.
 [ ] Slow UI: Verify images use Next/Image and API responses are optimized.
+[ ] Dashboard Timeout: Increase proxy timeout if Dashboard fails with TimeoutError.
+[ ] Metadata Warnings: Ensure NEXT_PUBLIC_METADATA_BASE is set to avoid fallback warnings.
 
 ================================================================================
 5. KEY REPOSITORY LINKS

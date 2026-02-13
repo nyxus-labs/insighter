@@ -1,6 +1,6 @@
 # 🛡️ The Insighter Enterprise
 
-[![Next.js](https://img.shields.io/badge/Next.js-14+-black?logo=next.js)](https://nextjs.org/)
+[![Next.js](https://img.shields.io/badge/Next.js-16+-black?logo=next.js)](https://nextjs.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.100+-009688?logo=fastapi)](https://fastapi.tiangolo.com/)
 [![Supabase](https://img.shields.io/badge/Supabase-Auth%20%26%20DB-3ECF8E?logo=supabase)](https://supabase.com/)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
@@ -52,7 +52,7 @@ Visit [http://localhost:3000](http://localhost:3000) to start your first project
 ## 🏗️ Architecture
 
 The platform follows the **Unified Tool Architecture (UTA)** pattern:
--   **Frontend**: Next.js 14 App Router with specialized `ToolContext` for inter-tool orchestration.
+-   **Frontend**: Next.js 16 (Turbopack) App Router with specialized `ToolContext` for inter-tool orchestration.
 -   **Backend**: FastAPI serving as a secure gateway to ML services and the data layer.
 -   **Data Layer**: PostgreSQL (Supabase) for relational metadata and S3-compatible storage for artifacts.
 -   **Security**: RLS-protected database access ensuring data isolation between users and teams.

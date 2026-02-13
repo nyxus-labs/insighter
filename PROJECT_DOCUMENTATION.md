@@ -49,6 +49,7 @@
 ### Prerequisites
 -   **Node.js**: 18.x or later.
 -   **Python**: 3.11 or later.
+-   **Next.js**: 16.1.6 (Turbopack).
 -   **Supabase Account**: Required for database and auth.
 -   **MLflow**: (Optional) For advanced experiment tracking.
 
@@ -56,7 +57,7 @@
 ```bash
 cd frontend
 npm install
-# Configure .env with NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY
+# Configure .env with NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY, and NEXT_PUBLIC_METADATA_BASE
 npm run dev
 ```
 
@@ -67,7 +68,7 @@ python -m venv .venv
 source .venv/bin/activate  # or .venv\Scripts\activate on Windows
 pip install -r requirements.txt
 # Configure .env with SUPABASE_URL, SUPABASE_KEY, and SUPABASE_JWT_SECRET
-python -m uvicorn app.main:app --reload
+python main.py
 ```
 
 ## 4. Configuration Details
@@ -78,6 +79,7 @@ python -m uvicorn app.main:app --reload
 | `NEXT_PUBLIC_API_URL` | Backend API base URL | `http://localhost:8000` |
 | `NEXT_PUBLIC_SUPABASE_URL` | Supabase Project URL | (Required) |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase Anon Key | (Required) |
+| `NEXT_PUBLIC_METADATA_BASE` | Base URL for metadata | `http://localhost:3000` |
 
 ### Environment Variables (Backend)
 | Variable | Description | Default |
@@ -89,7 +91,7 @@ python -m uvicorn app.main:app --reload
 ## 5. Deployment Procedures
 
 ### Production Build
-1.  **Frontend**: `npm run build` generates an optimized Next.js production build.
+1.  **Frontend**: `npm run build` generates an optimized Next.js 16 production build.
 2.  **Backend**: Use a production-grade server like Gunicorn with Uvicorn workers:
     ```bash
     gunicorn -w 4 -k uvicorn.workers.UvicornWorker app.main:app
@@ -98,6 +100,7 @@ python -m uvicorn app.main:app --reload
 ### Infrastructure Requirements
 -   **Database**: PostgreSQL (provided by Supabase).
 -   **Storage**: S3-compatible (provided by Supabase Storage).
+-   **Proxy**: Uses `proxy.ts` (Next.js 16) instead of deprecated `middleware.ts`.
 -   **Server**: Minimum 2 vCPUs, 4GB RAM recommended for standard workloads.
 
 ## 6. Troubleshooting Guide
