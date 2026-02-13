@@ -14,17 +14,17 @@ This report summarizes the comprehensive analysis and improvements made to The I
 
 ### 2.2 Code Smells
 - **Issue**: Extensive use of `print()` statements instead of logging.
-  - **Location**: Multiple files in `backend/app/api/routers/`, `backend/app/db/`, and `backend/app/core/`.
+  - **Location**: Multiple files in `backend/app/api/routers/`, `backend/app/db/`, `backend/app/core/`, `backend/app/services/`, and `backend/app/tools/`.
   - **Risk**: Low (Maintenance). Difficult to monitor in production.
   - **Resolution**: Replaced `print()` with a standardized `logger` from `app.core.logging`.
 - **Issue**: Inconsistent Supabase client creation.
-  - **Location**: Multiple API routes.
+  - **Location**: Multiple API routes and tool services.
   - **Risk**: Medium (Maintenance). Duplicated code and potential configuration drift.
   - **Resolution**: Standardized client retrieval via `SupabaseManager` in `app.db.supabase`.
-- **Issue**: `console.log` in production frontend code.
-  - **Location**: `frontend/app/login/page.tsx`, `frontend/hooks/useTool.ts`.
+- **Issue**: `console.log` and `console.error` in production frontend code.
+  - **Location**: `frontend/app/login/page.tsx`, `frontend/hooks/useTool.ts`, `frontend/app/studio/[id]/page.tsx`, `frontend/components/studio/environments/NotebookEnv.tsx`.
   - **Risk**: Low (Security/Maintenance). Leaks internal state to users.
-  - **Resolution**: Removed or replaced with comments.
+  - **Resolution**: Removed or replaced with comments/appropriate error handling.
 
 ### 2.3 Architectural Issues
 - **Issue**: Duplicated API routing logic.

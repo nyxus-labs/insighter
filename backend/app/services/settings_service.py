@@ -23,7 +23,8 @@ class SettingsService:
             
             return secrets
         except Exception as e:
-            print(f"Error fetching secrets for user {user_id}: {e}")
+            from app.core.logging import logger
+            logger.error(f"Error fetching secrets for user {user_id}: {e}")
             return {}
 
     @staticmethod
