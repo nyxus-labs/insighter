@@ -38,12 +38,11 @@ async def list_notebooks(
     credentials: HTTPAuthorizationCredentials = Depends(security)
 ):
     """List notebooks. Optionally filter by project_id."""
-    from supabase import create_client
-    from app.core.config import settings
-    
     token = credentials.credentials
-    user_supabase = create_client(settings.SUPABASE_URL, settings.SUPABASE_KEY)
-    user_supabase.postgrest.auth(token)
+    user_supabase = SupabaseManager.get_authenticated_client(token)
+    
+    if not user_supabase:
+        raise HTTPException(status_code=500, detail="Supabase client not available")
     
     try:
         query = user_supabase.table('notebooks').select("*").eq('created_by', current_user.user_id)
@@ -53,7 +52,8 @@ async def list_notebooks(
         response = query.order('updated_at', desc=True).execute()
         return response.data
     except Exception as e:
-        print(f"Error listing notebooks: {e}")
+        from app.core.logging import logger
+        logger.error(f"Error listing notebooks: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/", response_model=Notebook)
@@ -63,12 +63,11 @@ async def create_notebook(
     credentials: HTTPAuthorizationCredentials = Depends(security)
 ):
     """Create a new notebook."""
-    from supabase import create_client
-    from app.core.config import settings
-    
     token = credentials.credentials
-    user_supabase = create_client(settings.SUPABASE_URL, settings.SUPABASE_KEY)
-    user_supabase.postgrest.auth(token)
+    user_supabase = SupabaseManager.get_authenticated_client(token)
+    
+    if not user_supabase:
+        raise HTTPException(status_code=500, detail="Supabase client not available")
     
     try:
         # Verify project ownership first
@@ -87,7 +86,8 @@ async def create_notebook(
         response = user_supabase.table('notebooks').insert(data).execute()
         return response.data[0]
     except Exception as e:
-        print(f"Error creating notebook: {e}")
+        from app.core.logging import logger
+        logger.error(f"Error creating notebook: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/{notebook_id}", response_model=Notebook)

@@ -68,6 +68,8 @@ class Settings(BaseSettings):
 
     def _validate_required_vars(self):
         """Custom validation for required variables with helpful error messages."""
+        import logging
+        logger = logging.getLogger("insighter")
         missing = []
         
         # Check critical Supabase vars
@@ -80,17 +82,17 @@ class Settings(BaseSettings):
             if self.ENVIRONMENT == "production":
                 raise ValueError(error_msg)
             else:
-                print(f"⚠️  WARNING: {error_msg}")
+                logger.warning(error_msg)
 
         # Validate SECRET_KEY
         if not self.SECRET_KEY:
             if self.ENVIRONMENT == "production":
                 raise ValueError("SECRET_KEY is required in production!")
             self.SECRET_KEY = secrets.token_urlsafe(32)
-            print("⚠️  WARNING: Using auto-generated SECRET_KEY for development.")
+            logger.warning("Using auto-generated SECRET_KEY for development.")
         
         if len(self.SECRET_KEY) < 32:
-            print("⚠️  WARNING: SECRET_KEY should be at least 32 characters for security.")
+            logger.warning("SECRET_KEY should be at least 32 characters for security.")
 
     @property
     def is_production(self) -> bool:

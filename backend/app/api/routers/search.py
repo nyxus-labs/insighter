@@ -76,7 +76,8 @@ async def search(
                     metadata={"updated_at": item.get('updated_at') or item.get('created_at')}
                 ))
         except Exception as e:
-            print(f"Error searching {table}: {e}")
+            from app.core.logging import logger
+            logger.error(f"Error searching {table}: {e}")
             continue
 
     # Manual pagination/limiting since we aggregate multiple queries

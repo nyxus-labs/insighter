@@ -38,6 +38,7 @@ class NotebookTool(BaseTool):
             
             try:
                 with contextlib.redirect_stdout(stdout_capture), contextlib.redirect_stderr(stderr_capture):
+<<<<<<< HEAD
                     # Restricted execution scope - prevents direct access to dangerous builtins
                     # WARNING: Still vulnerable to sophisticated attacks (e.g., via imports)
                     restricted_globals = {
@@ -58,6 +59,13 @@ class NotebookTool(BaseTool):
                         }
                     }
                     exec(code, restricted_globals, {})
+=======
+                    # SECURITY WARNING: exec() is inherently dangerous.
+                    # In production, this MUST be executed in a sandboxed container (e.g., Docker).
+                    # We use a restricted global scope to minimize risks in dev.
+                    safe_globals = {"__builtins__": {}} # Extreme restriction for demo
+                    exec(code, safe_globals, {})
+>>>>>>> 6ed0e1967af29b666b40c0ee002df73ca8b9888f
                 
                 result_output = stdout_capture.getvalue()
                 error_output = stderr_capture.getvalue()

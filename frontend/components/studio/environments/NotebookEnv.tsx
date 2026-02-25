@@ -40,7 +40,6 @@ export default function NotebookEnv({ tool, projectId }: ToolEnvironmentProps) {
     toolId: tool.id,
     subscriptions: ['DATA_LOAD'],
     onMessage: (msg) => {
-      console.log('Notebook received message:', msg);
       if (msg.type === 'DATA_LOAD') {
         setLastMessage(`Received dataset: ${msg.payload.datasetId}`);
         addCellWithCode(`# Auto-generated from Data Tool\nimport pandas as pd\ndf = pd.read_csv("${msg.payload.url}")\ndf.head()`);

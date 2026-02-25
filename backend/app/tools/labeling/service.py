@@ -1,12 +1,12 @@
 from typing import Dict, Any, List
 from app.tools.base import BaseTool
-from supabase import create_client
-from app.core.config import settings
+from app.db.supabase import SupabaseManager
+from app.core.logging import logger
 
 class LabelingTool(BaseTool):
     def __init__(self, config):
         super().__init__(config)
-        self.supabase = create_client(settings.SUPABASE_URL, settings.SUPABASE_KEY)
+        self.supabase = SupabaseManager.get_client()
 
     async def initialize(self, project_id: str) -> Dict[str, Any]:
         try:
@@ -38,7 +38,7 @@ class LabelingTool(BaseTool):
                 "classes": labels
             }
         except Exception as e:
-            print(f"Error initializing LabelingTool: {e}")
+            logger.error(f"Error initializing LabelingTool: {e}")
             return {"status": "error", "message": str(e)}
 
     async def execute(self, action: str, payload: Dict[str, Any]) -> Dict[str, Any]:
@@ -92,7 +92,7 @@ class LabelingTool(BaseTool):
                 
             return {"error": "Unknown action"}
         except Exception as e:
-            print(f"Error executing LabelingTool action {action}: {e}")
+            logger.error(f"Error executing LabelingTool action {action}: {e}")
             return {"error": str(e)}
 
     async def terminate(self, project_id: str) -> bool:

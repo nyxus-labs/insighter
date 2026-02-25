@@ -1,5 +1,8 @@
 from supabase import create_client, Client
 from app.core.config import settings
+import logging
+
+logger = logging.getLogger("insighter")
 
 class SupabaseManager:
     _client: Client = None
@@ -10,7 +13,7 @@ class SupabaseManager:
         if cls._client is None:
             if not settings.SUPABASE_URL or not settings.SUPABASE_KEY:
                 # Return a mock or raise warning if credentials missing in dev
-                print("Warning: Supabase credentials missing. Some features may not work.")
+                logger.warning("Supabase credentials missing. Some features may not work.")
                 return None
             cls._client = create_client(settings.SUPABASE_URL, settings.SUPABASE_KEY)
         return cls._client
@@ -21,7 +24,7 @@ class SupabaseManager:
             # Prefer SERVICE_ROLE_KEY for administrative tasks
             key = settings.SUPABASE_SERVICE_ROLE_KEY or settings.SUPABASE_KEY
             if not settings.SUPABASE_URL or not key:
-                print("Warning: Supabase service credentials missing.")
+                logger.warning("Supabase service credentials missing.")
                 return None
             cls._service_client = create_client(settings.SUPABASE_URL, key)
         return cls._service_client

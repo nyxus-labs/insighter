@@ -63,7 +63,7 @@ export default function Studio({ params }: { params: Promise<{ id: string }> }) 
         const res = await api.get(`/api/projects/${id}`);
         setProject(res.data);
       } catch (e) {
-        console.error('Failed to fetch project:', e);
+        // Handle error quietly or use a toast notification
       } finally {
         setIsLoading(false);
       }

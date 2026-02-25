@@ -46,7 +46,7 @@ async def list_projects(
             .execute()
         
         if not hasattr(response, 'data') or response.data is None:
-            print(f"DEBUG: Empty or invalid response from Supabase in list_projects: {response}")
+            logger.debug(f"Empty or invalid response from Supabase in list_projects: {response}")
             return []
             
         projects = []
@@ -61,7 +61,7 @@ async def list_projects(
             
         return projects
     except Exception as e:
-        print(f"Error listing projects: {e}")
+        logger.error(f"Error listing projects: {e}")
         error_msg = str(e)
         if "401" in error_msg or "Unauthorized" in error_msg:
             raise HTTPException(

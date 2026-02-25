@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.api.v1 import auth, projects, notebooks, labeling, experiments, deployment
@@ -23,3 +24,13 @@ app.include_router(deployment.router, prefix="/api/v1/deploy", tags=["ONNX/Docke
 @app.get("/")
 def health():
     return {"status": "online", "modules": ["Auth", "Jupyter", "Labeling", "MLflow", "ONNX"]}
+=======
+# Entry point for the backend application
+# Redirects to the main app implementation in app/main.py
+
+from app.main import app
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+>>>>>>> 6ed0e1967af29b666b40c0ee002df73ca8b9888f

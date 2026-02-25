@@ -48,7 +48,6 @@ export default function Login() {
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log('Login attempt started');
     setLoading(true);
     setError(null);
     setSuccess(null);
@@ -60,7 +59,6 @@ export default function Login() {
       });
 
       if (error) {
-        console.error('Login error:', error);
         if (error.message.includes('Email not confirmed')) {
           setError('Your email has not been confirmed yet. Please check your inbox for the confirmation link or contact an administrator.');
         } else {
@@ -70,7 +68,6 @@ export default function Login() {
         return;
       }
 
-      console.log('Login successful', data);
       router.push('/dashboard');
     } catch (err: any) {
       setError(err.message || 'An error occurred during authentication');
