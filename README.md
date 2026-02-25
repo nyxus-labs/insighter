@@ -1,6 +1,6 @@
 # 🛡️ The Insighter Enterprise
 
-[![Next.js](https://img.shields.io/badge/Next.js-14+-black?logo=next.js)](https://nextjs.org/)
+[![Next.js](https://img.shields.io/badge/Next.js-16+-black?logo=next.js)](https://nextjs.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.100+-009688?logo=fastapi)](https://fastapi.tiangolo.com/)
 [![Supabase](https://img.shields.io/badge/Supabase-Auth%20%26%20DB-3ECF8E?logo=supabase)](https://supabase.com/)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
@@ -77,7 +77,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ## 📧 Contact
 
 **The Insighter Team** - [support@the-insighter.enterprise](mailto:support@the-insighter.enterprise)  
-Project Link: [https://github.com/your-org/The-Insighter-Enterprise](https://github.com/your-org/The-Insighter-Enterprise)
+Project Link: [https://github.com/nyxus-dev-labs/Insighter](https://github.com/nyxus-dev-labs/Insighter)
 
 ---
 *Built with ❤️ for the Data Science Community.*

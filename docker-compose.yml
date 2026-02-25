@@ -1,5 +1,9 @@
 version: '3.8'
 services:
+  # IMPORTANT: This docker-compose is for LOCAL DEVELOPMENT ONLY.
+  # For production, configure Supabase credentials in .env and remove the local `db` service.
+  # Backend will auto-connect to Supabase PostgreSQL if DATABASE_URL is set.
+  
   backend:
     build: ./backend
     container_name: insighter-backend
@@ -9,6 +13,9 @@ services:
     ports: ["8000:8000"]
     env_file: .env
     depends_on: [db, mlflow]
+    environment:
+      # Override for local dev: connects to local PostgreSQL instead of Supabase
+      DATABASE_URL: postgresql://user:password@db:5432/insighter_db
 
   frontend:
     build: ./frontend
@@ -20,6 +27,9 @@ services:
     ports: ["3000:3000"]
     env_file: .env
 
+  # LOCAL DATABASE (Development Only)
+  # This service is for local development/testing without Supabase.
+  # In production, configure SUPABASE_URL and SUPABASE_KEY in .env instead.
   db:
     image: postgres:15
     environment:
@@ -28,12 +38,20 @@ services:
       POSTGRES_DB: insighter_db
     ports: ["5432:5432"]
     volumes: [postgres_data:/var/lib/postgresql/data]
+    # Healthcheck to ensure DB is ready before backend connects
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U user -d insighter_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   mlflow:
     image: ghcr.io/mlflow/mlflow:v2.9.2
     command: mlflow server --host 0.0.0.0 --backend-store-uri postgresql://user:password@db:5432/mlflow_db
     ports: ["5000:5000"]
-    depends_on: [db]
+    depends_on:
+      db:
+        condition: service_healthy
 
 volumes:
   postgres_data:

@@ -16,13 +16,18 @@ app = FastAPI(
     version="1.0.0"
 )
 
-# CORS Configuration - More permissive for development
+# CORS Configuration - Support both localhost and potentially Docker/Production URLs
+origins = settings.BACKEND_CORS_ORIGINS
+if isinstance(origins, str):
+    origins = [origins]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],
+    allow_origins=origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["*"]
 )
 
 app.include_router(health.router, prefix="/api", tags=["Health"])

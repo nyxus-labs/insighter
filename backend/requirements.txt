@@ -1,75 +1,52 @@
-fastapi
-uvicorn[standard]
-pydantic-settings
-python-multipart
-python-dotenv
-supabase
-sqlalchemy
-psycopg2-binary
+# ============================================================================
+# The Insighter Enterprise - Core Backend Requirements
+# ============================================================================
+# IMPORTANT: Keep this file minimal to avoid dependency conflicts.
+# Optional packages are in requirements-optional.txt
+# ============================================================================
+
+# Web Framework & Server
+fastapi>=0.104.0
+uvicorn[standard]>=0.24.0
+pydantic>=2.0.0
+pydantic-settings>=2.0.0
+python-multipart>=0.0.6
+python-dotenv>=1.0.0
+
+# Database & ORM
+sqlalchemy>=2.0.0
+psycopg2-binary>=2.9.0
+supabase>=2.0.0
 
 # Security & Authentication
-python-jose[cryptography]
-passlib[bcrypt]
-bcrypt
-slowapi
+python-jose[cryptography]>=3.3.0
+passlib[bcrypt]>=1.7.0
+bcrypt>=4.0.0
+slowapi>=0.1.9
 
-# Data Science Core
-pandas
-numpy
-scipy
-scikit-learn
-statsmodels
-
-# Data Analytics
-duckdb
-pyarrow
-
-# Deep Learning
-torch --index-url https://download.pytorch.org/whl/cpu
-tensorflow-cpu
-keras
+# Core Data Science
+pandas>=2.0.0
+numpy>=1.23.0
+scipy>=1.10.0
+scikit-learn>=1.3.0
 
 # Machine Learning & MLOps
-xgboost
-lightgbm
-catboost
-mlflow
-onnx
-onnxruntime
-
-# Data Cleaning & Profiling
-ydata-profiling
-great-expectations
-missingno
-pyjanitor
+xgboost>=2.0.0
+lightgbm>=4.0.0
+mlflow>=2.0.0
+onnx>=1.14.0
+onnxruntime>=1.15.0
 
 # Visualization
-matplotlib
-seaborn
-plotly
-altair
-bokeh
+matplotlib>=3.7.0
+plotly>=5.0.0
+seaborn>=0.12.0
 
-# Storytelling & Apps
-dash
-streamlit
+# Jupyter/Notebook Execution
+jupyter_client>=8.0.0
+ipykernel>=6.20.0
 
-# Labeling
-label-studio
-doccano
-roboflow
-
-# Automation & Pipelines
-apache-airflow
-prefect
-dagster
-
-# Execution Environment
-jupyter_client
-ipykernel
-
-# Utilities
-httpx
-pytest
-faker
-docker
+# Testing & Utilities
+pytest>=7.0.0
+httpx>=0.24.0
+docker>=6.0.0

@@ -84,6 +84,7 @@ async def create_project(
     # Create a new client with the user's actual JWT to ensure RLS context is passed to Supabase
     token = credentials.credentials
     user_supabase = SupabaseManager.get_authenticated_client(token)
+    service_supabase = SupabaseManager.get_service_client()
     
     if not user_supabase:
         logger.error("Supabase client not available during project creation")
@@ -91,9 +92,6 @@ async def create_project(
     
     # Ensure profile exists before creating project to avoid foreign key violation
     try:
-        # Use service role client for administrative profile check/creation
-        service_supabase = SupabaseManager.get_service_client()
-        
         # Check if profile exists using service role for maximum reliability
         profile_exists = False
         if service_supabase:
@@ -162,8 +160,7 @@ async def create_project(
         logger.warning(f"Could not ensure profile exists: {profile_err}")
     
     try:
-        # Use a service role client but set the user context for THIS operation
-        # Note: We rely on 'tags' to store the category/type to avoid schema migration issues
+        # Prepare tags and data
         tags = project.tags or []
         if project.type and project.type != 'General':
             type_tag = project.type.lower()
@@ -180,69 +177,59 @@ async def create_project(
         
         logger.info(f"Creating project '{project.name}' for user {current_user.user_id}")
         
-        response = None
-        # Try with user-authenticated client first to respect RLS
+        # 1. Primary Attempt: User client (Respects RLS)
         try:
             response = user_supabase.table('projects').insert(data).select().execute()
-            logger.debug(f"Supabase user-client response: {response}")
-        except Exception as db_err:
-            error_msg = str(db_err)
-            logger.debug(f"User-client insert failed: {error_msg}")
-            
-            # If we get a 401, it might be an expired token or unconfirmed email
-            if "401" in error_msg or "Unauthorized" in error_msg:
-                raise HTTPException(
-                    status_code=401, 
-                    detail="Authentication failed. Your session may have expired or your email is not confirmed."
-                )
+            if response and hasattr(response, 'data') and response.data:
+                logger.info(f"Project created successfully via user client: {project.name}")
+                created_project = response.data[0]
+                created_project['type'] = project.type
+                return created_project
+            logger.warning("User client insert returned no data (likely RLS policy restriction)")
+        except Exception as user_err:
+            logger.warning(f"User client project creation failed: {user_err}")
+            if "401" in str(user_err) or "Unauthorized" in str(user_err):
+                raise HTTPException(status_code=401, detail="Authentication failed or session expired")
 
-            # Fallback to service role if RLS or other database errors occur
-            if service_supabase:
-                logger.info("Attempting with service role as fallback for project creation...")
-                try:
-                    response = service_supabase.table('projects').insert(data).select().execute()
-                    logger.debug(f"Service role fallback response: {response}")
-                except Exception as fallback_err:
-                    logger.error(f"Service role fallback also failed: {fallback_err}")
-                    raise HTTPException(status_code=500, detail=f"Database Error: {fallback_err}")
-            else:
-                raise HTTPException(status_code=500, detail=f"Database Error: {error_msg}")
-        
-        if not response or not hasattr(response, 'data') or not response.data or len(response.data) == 0:
-            # Last ditch effort: if insert was successful but didn't return data (due to RLS on SELECT),
-            # try to fetch the project we just created using service role.
-            if service_supabase:
-                logger.info("No data returned from insert. Attempting to fetch created project using service role...")
-                try:
-                    response = service_supabase.table('projects')\
-                        .select("*")\
-                        .eq('name', project.name)\
-                        .eq('owner_id', current_user.user_id)\
-                        .order('created_at', desc=True)\
-                        .limit(1)\
-                        .execute()
-                    logger.debug(f"Service role fetch response: {response}")
-                except Exception as fetch_err:
-                    logger.error(f"Service role fetch failed: {fetch_err}")
+        # 2. Secondary Attempt: Service role (Bypasses RLS)
+        if service_supabase:
+            logger.info("Attempting project creation with service role fallback...")
+            try:
+                response = service_supabase.table('projects').insert(data).select().execute()
+                if response and hasattr(response, 'data') and response.data:
+                    logger.info(f"Project created successfully via service role fallback: {project.name}")
+                    created_project = response.data[0]
+                    created_project['type'] = project.type
+                    return created_project
+            except Exception as service_err:
+                logger.error(f"Service role project creation also failed: {service_err}")
+                raise HTTPException(status_code=500, detail=f"Database Error: {service_err}")
 
-        if not response or not hasattr(response, 'data') or not response.data or len(response.data) == 0:
-            error_detail = "Failed to create project in database - no data returned. This usually indicates an RLS policy issue, unconfirmed email, or missing profile."
-            print(f"DEBUG: Final check failed - empty response or no data: {response}")
-            raise HTTPException(status_code=500, detail=error_detail)
-            
-        created_project = response.data[0]
-        # Re-attach type for the response model
-        created_project['type'] = project.type
-        
-        return created_project
+        # 3. Final Fallback: Fetch if already exists or was created but not returned
+        if service_supabase:
+            logger.info("Checking if project was created but not returned...")
+            try:
+                response = service_supabase.table('projects')\
+                    .select("*")\
+                    .eq('name', project.name)\
+                    .eq('owner_id', current_user.user_id)\
+                    .order('created_at', desc=True)\
+                    .limit(1)\
+                    .execute()
+                if response and hasattr(response, 'data') and response.data:
+                    logger.info(f"Existing project found for user {current_user.user_id}")
+                    created_project = response.data[0]
+                    created_project['type'] = project.type
+                    return created_project
+            except Exception as fetch_err:
+                logger.error(f"Final project fetch failed: {fetch_err}")
+
+        raise HTTPException(status_code=500, detail="Failed to create or retrieve project in database")
     except HTTPException:
         raise
     except Exception as e:
-        print(f"Error creating project: {e}")
-        error_msg = str(e)
-        if "violates foreign key constraint" in error_msg:
-            error_msg = "User profile not found or could not be created. Please try logging in again."
-        raise HTTPException(status_code=500, detail=error_msg)
+        logger.error(f"Unhandled error in project creation: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/{project_id}", response_model=Project)
 async def get_project(

@@ -21,26 +21,21 @@ async def login(credentials: UserLogin):
     """
     Login endpoint - authenticate user and return JWT token.
     
-    **IMPORTANT**: Default credentials are for demo/testing only.
-    - demo / demo123
-    - admin / admin123
+    Authentication is delegated to Supabase Auth (managed via @get_current_user dependency).
+    This endpoint validates credentials against Supabase's user database.
     
-    Change immediately in production!
+    To authenticate:
+    1. Sign up via Supabase Auth (frontend)
+    2. Use returned JWT token in Authorization: Bearer <token> header
+    3. Backend validates token with Supabase
     """
-    user = MOCK_USERS.get(credentials.username)
-    if not user or not verify_password(credentials.password, user["hashed_password"]):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect username or password",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-    
-    access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
-    access_token = create_access_token(
-        data={"sub": user["username"], "role": user["role"]},
-        expires_delta=access_token_expires
+    # This endpoint is a legacy stub. Modern auth uses Supabase JWT tokens.
+    # MOCK_USERS is intentionally empty - all auth goes through Supabase.
+    raise HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Use Supabase Auth. Sign up on the frontend to obtain a JWT token.",
+        headers={"WWW-Authenticate": "Bearer"},
     )
-    return {"access_token": access_token, "token_type": "bearer"}
 
 @router.post("/register", response_model=Token)
 async def register(credentials: UserLogin):

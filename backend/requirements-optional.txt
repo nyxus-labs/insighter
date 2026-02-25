@@ -1,0 +1,55 @@
+# ============================================================================
+# The Insighter Enterprise - Optional Dependencies
+# ============================================================================
+# Install with: pip install -r requirements.txt -r requirements-optional.txt
+# 
+# These packages add advanced functionality but may have dependency conflicts.
+# Install only the features you need to avoid resolution issues.
+# ============================================================================
+
+# ─── Data Labeling & Annotation ───────────────────────────────────────────
+# Uncomment one or the other, NOT both (they have conflicting dependencies)
+
+# Option 1: Label Studio (recommended for image/text labeling)
+# label-studio>=1.11.0
+
+# Option 2: Doccano (lighter weight alternative)
+# doccano>=1.12.0
+
+# ─── Computer Vision ──────────────────────────────────────────────────────
+# roboflow>=1.0.0
+# opencv-python>=4.8.0
+
+# ─── Data Profiling & Validation ──────────────────────────────────────────
+# ydata-profiling>=4.0.0
+# great-expectations>=0.18.0
+# pyjanitor>=0.28.0
+
+# ─── Orchestration (choose ONE, not all) ──────────────────────────────────
+# WARNING: These have HEAVY dependency trees. Install only what you need.
+
+# Option 1: Apache Airflow (production-grade, requires understanding of DAGs)
+# apache-airflow>=2.7.0
+
+# Option 2: Prefect (modern, cloud-native)
+# prefect>=3.0.0
+
+# Option 3: Dagster (advanced, declarative)
+# dagster>=1.5.0
+
+# ─── Interactive Dashboards ───────────────────────────────────────────────
+# dash>=2.14.0
+# streamlit>=1.28.0
+
+# ─── Additional ML/Stats ──────────────────────────────────────────────────
+# statsmodels>=0.14.0
+# catboost>=1.2.0
+# keras>=2.13.0 (requires tensorflow or torch)
+
+# ─── Data Formats ─────────────────────────────────────────────────────────
+# duckdb>=0.9.0  (efficient SQL queries on data files)
+# pyarrow>=12.0.0  (columnar format support)
+
+# ─── Visualization Extras ─────────────────────────────────────────────────
+# altair>=5.0.0  (declarative visualization)
+# bokeh>=3.2.0  (interactive plots)
